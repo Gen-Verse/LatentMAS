@@ -104,7 +104,6 @@ If you want **vLLM support**, also install:
 pip install vllm
 ```
 
-
 ## 🚀 Quick Start
 
 ### 1. Clone the repo

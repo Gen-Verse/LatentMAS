@@ -13,7 +13,7 @@ Latent Collaboration in Multi-Agent Systems
 
 
 <p align="center">
-    <a href=""><img src="https://img.shields.io/badge/arXiv-2510.05592-B31B1B.svg?logo=arxiv" alt="Arxiv"></a>
+    <a href="https://arxiv.org/abs/2511.20639"><img src="https://img.shields.io/badge/arXiv-2511.20639-B31B1B.svg?logo=arxiv" alt="Arxiv"></a>
     <a href="https://huggingface.co/papers/2510.05592"><img src="https://img.shields.io/badge/Huggingface-DailyPaper-FFD21E.svg?logo=huggingface" alt="Huggingface Paper"></a>
     <a href="https://x.com/LingYang_PU"><img src="https://img.shields.io/badge/Coverage-LatentMAS-2176BC.svg?logo=x" alt="X"></a>
   
@@ -224,7 +224,7 @@ CUDA_VISIBLE_DEVICES=0,1 python run.py --method latent_mas --model_name Qwen/Qwe
 @article{zou2025latentmas,
   title={Latent Collaboration in Multi-Agent Systems},
   author={Zou, Jiaru and Yang, Xiyuan and Qiu, Ruizhong and Li, Gaotang and Tieu, Katherine and Lu, Pan and Shen, Ke and Tong, Hanghang and Choi, Yejin and He, Jingrui and Zou, James and Wang, Mengdi and Yang, Ling},
-  journal={Preprint},
+  journal={arXiv preprint arXiv:2511.20639},
   year={2025}
 }
 ```

@@ -1,21 +1,21 @@
 from typing import Dict, List
 
 from models import ModelWrapper
-from src.prompts import build_agent_messages_single_agent
+from prompts import build_agent_messages_single_agent
 from utils import extract_gsm8k_answer, normalize_answer, extract_markdown_python_block, run_with_timeout
 
 
 class BaselineMethod:
     def __init__(
-        self,
-        model: ModelWrapper,
-        *,
-        max_new_tokens: int = 256,
-        temperature: float = 0.7,
-        top_p: float = 0.95,
-        generate_bs: int = 1,
-        use_vllm: bool = False,
-        args=None,
+            self,
+            model: ModelWrapper,
+            *,
+            max_new_tokens: int = 256,
+            temperature: float = 0.7,
+            top_p: float = 0.95,
+            generate_bs: int = 1,
+            use_vllm: bool = False,
+            args=None,
     ) -> None:
         self.model = model
         self.max_new_tokens = max_new_tokens
@@ -30,14 +30,16 @@ class BaselineMethod:
     def run_batch(self, items: List[Dict]) -> List[Dict]:
         if len(items) > self.generate_bs:
             raise ValueError("Batch size exceeds configured generate_bs")
+
         batch_messages = [
-            build_agent_messages_single_agent(role="singleagent", question=item["question"], context="",method=self.method_name, args=self.args)
+            build_agent_messages_single_agent(question=item["question"], args=self.args)
             for item in items
         ]
+
         prompts, input_ids, attention_mask, tokens_batch = self.model.prepare_chat_batch(
             batch_messages, add_generation_prompt=True
         )
-        
+
         if self.use_vllm:
             generated_batch = self.model.vllm_generate_text_batch(
                 prompts,
@@ -55,10 +57,10 @@ class BaselineMethod:
             )
 
         results: List[Dict] = []
-        
+
         for idx, item in enumerate(items):
             generated_text = generated_batch[idx]
-            
+
             if self.task in ['mbppplus', 'humanevalplus']:
                 pred = extract_markdown_python_block(generated_text)
                 gold = item.get("gold", "")
@@ -69,7 +71,7 @@ class BaselineMethod:
                 else:
                     python_code_to_exe = pred + "\n" + gold
                     ok, error_msg = run_with_timeout(python_code_to_exe, timeout=10)
-                
+
                 print(f'=========================================')
                 print(f'Question {idx}')
                 print(f'error_msg: {error_msg}')
@@ -92,7 +94,7 @@ class BaselineMethod:
                 gold = item.get("gold", "")
                 ok = (pred == gold) if (pred and gold) else False
                 error_msg = None
-            
+
             mask = attention_mask[idx].bool()
             trimmed_ids = input_ids[idx][mask].to("cpu").tolist()
             agent_trace = {

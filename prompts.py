@@ -54,7 +54,7 @@ You are a helpful assistant. You are provided with latent information for refere
 
 The latent information might contain irrelevant contents. Ignore it if it is not helpful for solving the target question.
 
-Your must reason step-by-step to solve the **provided Target Question** witout outputing other irrelevant inforamtion.
+You must reason step-by-step to solve the **provided Target Question** without outputting other irrelevant information.
 
 Now, reason step by step and output the final answer inside \\boxed{{YOUR_FINAL_ANSWER}}.
 """
@@ -67,7 +67,7 @@ You are a helpful assistant. You are provided with latent information for refere
 
 The latent information might contain irrelevant contents. Ignore it if it is not helpful for solving the target question.
 
-Your must reason step-by-step to solve the **provided Target Question** witout outputing other irrelevant inforamtion.
+You must reason step-by-step to solve the **provided Target Question** without outputting other irrelevant information.
 Your final answer must be selected from A,B,C,D. For example \\boxed{{A}}. Do not add any other contents inside the box.
 
 Now, reason step by step and output the final answer inside \\boxed{{YOUR_FINAL_ANSWER}}.
@@ -81,7 +81,7 @@ You are a helpful assistant. You are provided with latent information for refere
 
 The latent information might contain irrelevant contents. Ignore it if it is not helpful for solving the target question.
 
-Your must reason step-by-step to solve the **provided Target Question** witout outputing other irrelevant inforamtion.
+You must reason step-by-step to solve the **provided Target Question** without outputting other irrelevant information.
 You must put all python code as self-contained Python function in markdown code blocks. For example ```python
 import math
 def add(a, b):
@@ -100,7 +100,7 @@ You are a helpful assistant. You are provided with latent information for refere
 
 The latent information might contain irrelevant contents. Ignore it if it is not helpful for solving the target question.
 
-Your must reason step-by-step to solve the **provided Target Question** witout outputing other irrelevant inforamtion.
+You must reason step-by-step to solve the **provided Target Question** without outputting other irrelevant information.
 Your final answer must be selected from 1 and 2. For example \\boxed{{1}} or \\boxed{{2}}. Do not add any other contents inside the box.
 
 Now, reason step by step and output the final answer inside \\boxed{{YOUR_FINAL_ANSWER}}.

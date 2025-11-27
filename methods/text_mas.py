@@ -3,7 +3,7 @@ from typing import Dict, List
 from . import default_agents
 from models import ModelWrapper
 # from prompts import build_agent_messages, build_agent_messages_v6, build_agent_messages_v6_text_mas
-from src.prompts import build_agent_messages_hierarchical_text_mas, build_agent_messages_sequential_text_mas
+from prompts import build_agent_messages_hierarchical_text_mas, build_agent_messages_sequential_text_mas
 from utils import extract_gsm8k_answer, normalize_answer, extract_markdown_python_block, run_with_timeout
 import argparse
 import pdb

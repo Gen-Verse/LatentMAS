@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple
 
 from . import default_agents
 from models import ModelWrapper, _past_length
-from src.prompts import build_agent_message_sequential_latent_mas, build_agent_message_hierarchical_latent_mas
+from prompts import build_agent_message_sequential_latent_mas, build_agent_message_hierarchical_latent_mas
 from utils import extract_gsm8k_answer, normalize_answer, extract_markdown_python_block, run_with_timeout
 import torch
 import argparse

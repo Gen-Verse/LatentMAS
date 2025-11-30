@@ -2,7 +2,7 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/img/logo.png">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo.png">
     <img alt="LatentMAS" src="assets/logo.png" width=500>
   </picture>
 </p>

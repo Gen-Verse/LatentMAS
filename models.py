@@ -176,7 +176,7 @@ class ModelWrapper:
         realign_matrix = torch.linalg.solve(gram, rhs)
         target_norm = input_weight.norm(dim=1).mean().detach()
 
-        if self.args.latent_space_realign:
+        if getattr(self.args, "latent_space_realign", False):
             pass
         else:
             # keep the matrix, for further normalization
@@ -360,10 +360,12 @@ class ModelWrapper:
     ) -> Tuple:
         if input_ids.dim() != 2:
             raise ValueError("input_ids must be 2D with shape [batch, seq_len]")
+        # choose HF device if available, otherwise fall back to main device
+        device_for_attention = getattr(self, "HF_device", self.device)
         if attention_mask is None:
-            attention_mask = torch.ones_like(input_ids, device=self.HF_device)
+            attention_mask = torch.ones_like(input_ids, device=device_for_attention)
         else:
-            attention_mask = attention_mask.to(self.HF_device)
+            attention_mask = attention_mask.to(device_for_attention)
         if past_key_values is not None:
             past_len = _past_length(past_key_values)
             if past_len > 0:

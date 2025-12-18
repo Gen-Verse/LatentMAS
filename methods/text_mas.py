@@ -25,7 +25,7 @@ class TextMASMethod:
         self.temperature = temperature
         self.top_p = top_p
         self.generate_bs = max(1, generate_bs)
-        self.agents = default_agents()
+        self.agents = getattr(args, "custom_agents", None) or default_agents()
         self.args = args
         self.method_name = "text_mas"
         self.task = args.task
@@ -101,7 +101,8 @@ class TextMASMethod:
                 text_out = generated_texts[idx].strip()
 
                 if self.args.prompt == "hierarchical":
-                    formatted_output = f"[{agent_name_map_for_prompt_hierarchical[agent.name]}]:\n{text_out}\n\n"
+                    agent_label = agent_name_map_for_prompt_hierarchical.get(agent.name, agent.name)
+                    formatted_output = f"[{agent_label}]:\n{text_out}\n\n"
                 else:
                     formatted_output = f"[{agent.name}]:\n{text_out}\n\n"
 

@@ -1,10 +1,16 @@
+def _get_system_message(args):
+    enforce_qwen = not getattr(args, "do_not_enforce_qwen", False)
+    if enforce_qwen:
+        assert "qwen" in getattr(args, "model_name", "").lower(), "Qwen-specific prompt; use --do_not_enforce_qwen to allow non-Qwen models."
+        return "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+    return "You are a helpful assistant."
+
 
 def build_agent_message_sequential_latent_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert method in ["latent_mas"], "this prompt only for latent_mas method"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    system_message = _get_system_message(args)
 
     if role == "planner":
         user_prompt = f"""You are a Planner Agent. Given an input question, design a clear, step-by-step plan for how to solve the question.
@@ -117,10 +123,9 @@ Now, reason step by step and output the final answer inside \\boxed{{YOUR_FINAL_
 
 def build_agent_message_hierarchical_latent_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert method in ["latent_mas"], "this prompt only for latent_mas method"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    system_message = _get_system_message(args)
 
     if args.task in ['gsm8k', 'aime2024', 'aime2025']:
         if role == "planner":
@@ -340,10 +345,9 @@ Your response:
 
 def build_agent_messages_sequential_text_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert method in ["text_mas"], "only for text_mas method"
-    assert "qwen" in args.model_name.lower(), "only for qwen models"
+
+    system_message = _get_system_message(args)
 
     # truncate context if needed
     ctx = context[: args.text_mas_context_length]
@@ -510,10 +514,9 @@ Now, reason step by step and present your final answer clearly at the end.
 
 def build_agent_messages_hierarchical_text_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-    
     assert method in ["text_mas"], "this prompt only for text_mas method"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    system_message = _get_system_message(args)
     
     if args.task in ['gsm8k', 'aime2024', 'aime2025']:
         if role == "planner":
@@ -693,10 +696,9 @@ Your response:
 
 def build_agent_messages_single_agent(question: str, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert args.method in ["baseline"], "this prompt only for baseline method (single agent)"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    system_message = _get_system_message(args)
 
     task = args.task
 
@@ -763,4 +765,3 @@ Present your reasoning, and then clearly state your final answer at the end.
         {"role": "system", "content": system_message},
         {"role": "user", "content": user_content},
     ]
-

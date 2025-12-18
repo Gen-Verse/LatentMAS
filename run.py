@@ -29,7 +29,7 @@ def evaluate(preds: List[Dict]) -> Tuple[float, int]:
     acc = correct / total if total > 0 else 0.0
     return acc, correct
 
-# Main processing function for each batch
+
 def process_batch(
     method,
     batch: List[Dict],
@@ -85,30 +85,33 @@ def main():
     parser = argparse.ArgumentParser()
 
     # core args for experiments
-    parser.add_argument("--method", choices=["baseline", "text_mas", "latent_mas"], required=True,
-                        help="Which multi-agent method to run: 'baseline', 'text_mas', or 'latent_mas'.")
-    parser.add_argument("--model_name", type=str, required=True,
-                        choices=["Qwen/Qwen3-4B", "Qwen/Qwen3-4B", "Qwen/Qwen3-14B"],
-                        help="Model choices to use for experiments (e.g. 'Qwen/Qwen3-14B').")
-    parser.add_argument("--max_samples", type=int, default=-1, help="Number of questions to evaluate; set -1 to use all samples.")
-    parser.add_argument("--task", choices=["gsm8k", "aime2024", "aime2025", "gpqa", "arc_easy", "arc_challenge", "mbppplus", 'humanevalplus', 'medqa'], default="gsm8k",
-                        help="Dataset/task to evaluate. Controls which loader is used.")
-    parser.add_argument("--prompt", type=str, choices=["sequential", "hierarchical"], default="sequential", help="Multi-agent system architecture: 'sequential' or 'hierarchical'.")
+    parser.add_argument("--method", choices=["baseline", "text_mas", "latent_mas"], required=True)
+    parser.add_argument("--model_name", type=str, required=True, #choices=["Qwen/Qwen3-4B", "Qwen/Qwen3-4B", "Qwen/Qwen3-14B"]
+    )
+    parser.add_argument("--max_samples", type=int, default=100)
+    parser.add_argument("--task", choices=["gsm8k", "aime2024", "aime2025", "gpqa", "arc_easy", "arc_challenge", "mbppplus", 'humanevalplus', 'medqa', "custom"], default="gsm8k")
+    parser.add_argument("--prompt", type=str, choices=["sequential", "hierarchical"], default="sequential")
+    parser.add_argument("--custom_prompt_file", type=str, default=None, help="Path to custom prompt template(s). Supports baseline, text_mas, and latent_mas. Accepts plain text (baseline) or JSON with role-specific fields.")
+    parser.add_argument("--custom_question", type=str, default=None, help="Custom question text when --task custom")
+    parser.add_argument("--custom_question_file", type=str, default=None, help="Path to a file containing a custom question when --task custom")
+    parser.add_argument("--custom_gold", type=str, default=None, help="Optional gold answer for custom task (string)")
 
     # other args
     parser.add_argument("--device", type=str, default="cuda")
     parser.add_argument("--split", type=str, default="test")
-    parser.add_argument("--max_new_tokens", type=int, default=4096)
-    parser.add_argument("--latent_steps", type=int, default=0, help="Number of latent steps for LatentMAS method")
+    parser.add_argument("--max_new_tokens", type=int, default=10000)
+    parser.add_argument("--latent_steps", type=int, default=10)
     parser.add_argument("--temperature", type=float, default=0.6)
     parser.add_argument("--top_p", type=float, default=0.95)
-    parser.add_argument("--generate_bs", type=int, default=20, help="Batch size for generation")
+    parser.add_argument("--generate_bs", type=int, default=20)
     parser.add_argument("--text_mas_context_length", type=int, default=-1, help="TextMAS context length limit")
-    parser.add_argument("--think", action="store_true", help="Manually add think token in the prompt for LatentMAS")
+    parser.add_argument("--think", nargs="?", const="<think>\n", default=None, help="Manually add think token in the prompt for LatentMAS. Use --think for default '<think>\\n<brainstorm>\\n' or --think 'custom' for custom tokens")
     parser.add_argument("--latent_space_realign", action="store_true")
+    parser.add_argument("--first_agent_text", action="store_true", help="First agent generates text instead of latent (useful for graph/structured reasoning)")
+    parser.add_argument("--do_not_enforce_qwen", action="store_true", help="Disable Qwen-specific system message and model name validation (use non-Qwen models)")
     parser.add_argument("--seed", type=int, default=42)
 
-    # vLLM support
+    # for vllm support
     parser.add_argument("--use_vllm", action="store_true", help="Use vLLM backend for generation")
     parser.add_argument("--enable_prefix_caching", action="store_true", help="Enable prefix caching in vLLM for latent_mas")
     parser.add_argument("--use_second_HF_model", action="store_true", help="Use a second HF model for latent generation in latent_mas")
@@ -118,6 +121,32 @@ def main():
 
     args = parser.parse_args()
     
+    args.custom_prompts = None
+    args.custom_prompt_text = None  # kept for baseline compatibility
+    args.custom_agents = None
+    if args.custom_prompt_file:
+        with open(args.custom_prompt_file, "r", encoding="utf-8") as f:
+            raw_text = f.read()
+        if not raw_text.strip():
+            raise ValueError("Custom prompt file is empty.")
+        try:
+            parsed = json.loads(raw_text)
+            args.custom_prompts = parsed
+            if isinstance(parsed, dict):
+                # Optional baseline override keys
+                args.custom_prompt_text = parsed.get("baseline") or parsed.get("user")
+                # Parse custom agents if provided
+                if "agents" in parsed and isinstance(parsed["agents"], list):
+                    from methods import Agent
+                    args.custom_agents = [
+                        Agent(name=agent_dict.get("name", ""), role=agent_dict.get("role", ""))
+                        for agent_dict in parsed["agents"]
+                        if isinstance(agent_dict, dict) and "name" in agent_dict and "role" in agent_dict
+                    ]
+        except json.JSONDecodeError:
+            args.custom_prompts = raw_text
+            args.custom_prompt_text = raw_text
+
     if args.method == "latent_mas" and args.use_vllm:
         args.use_second_HF_model = True 
         args.enable_prefix_caching = True
@@ -132,8 +161,6 @@ def main():
         temperature=args.temperature,
         top_p=args.top_p,
     )
-
-    # method selection 
     if args.method == "baseline":
         method = BaselineMethod(
             model,
@@ -164,8 +191,7 @@ def main():
     preds: List[Dict] = []
     processed = 0
     batch: List[Dict] = []
-    
-    # dataset loading
+
     if args.task == "gsm8k":
         dataset_iter = load_gsm8k(split=args.split)
     elif args.task == "aime2024":
@@ -184,9 +210,27 @@ def main():
         dataset_iter = load_humanevalplus(split='test')
     elif args.task == "medqa":
         dataset_iter = load_medqa(split='test')
+    elif args.task == "custom":
+        if args.custom_question is None and args.custom_question_file is None:
+            raise ValueError("For --task custom, provide --custom_question or --custom_question_file.")
+        if args.custom_question_file:
+            with open(args.custom_question_file, "r", encoding="utf-8") as f:
+                custom_question = f.read()
+        else:
+            custom_question = args.custom_question
+        gold = args.custom_gold.strip().lower() if args.custom_gold else ""
+        dataset_iter = [
+            {
+                "question": custom_question.strip(),
+                "solution": gold,
+                "gold": gold,
+            }
+        ]
+        if args.max_samples == 100:  # unchanged default
+            args.max_samples = 1
     else:
         raise ValueError(f'no {args.task} support')
-
+    
     if args.max_samples == -1:
         dataset_iter = list(dataset_iter)  
         args.max_samples = len(dataset_iter)
@@ -226,8 +270,6 @@ def main():
     total_time = time.time() - start_time
 
     acc, correct = evaluate(preds)
-    
-    # Load results in JSON format
     print(
         json.dumps(
             {

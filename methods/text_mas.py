@@ -40,7 +40,8 @@ class TextMASMethod:
         agent_traces: List[List[Dict]] = [[] for _ in range(batch_size)]
         final_texts = ["" for _ in range(batch_size)]
 
-        for agent in self.agents:
+        total_agents = len(self.agents)
+        for agent_idx, agent in enumerate(self.agents):
 
             if self.args.prompt == "hierarchical":
                 batch_messages = [
@@ -96,6 +97,8 @@ class TextMASMethod:
                 "judger": "Task Summrizer",
             }
 
+            is_last_agent = (agent_idx == total_agents - 1)
+
             for idx in range(batch_size):
 
                 text_out = generated_texts[idx].strip()
@@ -106,7 +109,7 @@ class TextMASMethod:
                 else:
                     formatted_output = f"[{agent.name}]:\n{text_out}\n\n"
 
-                if agent.role != "judger":
+                if not is_last_agent:
 
                     contexts[idx] = f"{contexts[idx]}{formatted_output}"
                     history_contexts[idx] = f"{history_contexts[idx]}{formatted_output}"

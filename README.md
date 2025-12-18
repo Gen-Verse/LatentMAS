@@ -361,34 +361,6 @@ python run.py --method baseline \
   --custom_prompt_file prompts_advanced.json
 ```
 
-### 💬 Custom Questions and Tasks
-
-Run LatentMAS on your own questions using the `--task custom` option:
-
-```bash
-# Direct question via command line
-python run.py --method latent_mas \
-  --model_name Qwen/Qwen3-14B \
-  --task custom \
-  --custom_question "Give me a research idea to make a new composite using silk." \
-  --latent_steps 64 \
-  --prompt hierarchical
-
-# Question from a text file
-python run.py --method latent_mas \
-  --model_name Qwen/Qwen3-14B \
-  --task custom \
-  --custom_question_file my_question.txt \
-  --latent_steps 50
-
-# With optional gold answer for evaluation
-python run.py --method latent_mas \
-  --model_name Qwen/Qwen3-14B \
-  --task custom \
-  --custom_question "What is 2+2?" \
-  --custom_gold "4"
-```
-
 ### 🔧 Model-Specific Settings: Qwen Enforcement
 
 LatentMAS may work with any HuggingFace model without model-specific requirements (further testing is needed, especiallly for benchmark performance). To do this you need to turn off enforcing Qwen-specific behavior (system message and model name validation), use the `--do_not_enforce_qwen` flag:

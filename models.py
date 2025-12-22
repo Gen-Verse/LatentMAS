@@ -310,8 +310,19 @@ class ModelWrapper:
         )
         past = outputs.past_key_values
 
-        e_t = outputs.hidden_states[0][:, -1, :]          # [B, D]
-        last_hidden = outputs.hidden_states[-1][:, -1, :] # [B, D]
+        # If past_key_values is None, we might have padding.
+        if past_key_values is None:
+             # Identify last token index
+             # attention_mask (at this point, if past is None, it is just original mask)
+             last_token_indices = attention_mask.sum(1) - 1
+             batch_indices = torch.arange(input_ids.shape[0], device=input_ids.device)
+             e_t = outputs.hidden_states[0][batch_indices, last_token_indices, :]
+             last_hidden = outputs.hidden_states[-1][batch_indices, last_token_indices, :]
+        else:
+             # Assume no padding in incremental decoding steps
+             e_t = outputs.hidden_states[0][:, -1, :]
+             last_hidden = outputs.hidden_states[-1][:, -1, :]
+
         h_t = last_hidden.detach().clone()
 
         e_t_plus_1 = None
@@ -382,7 +393,13 @@ class ModelWrapper:
             return_dict=True,
         )
         past = outputs.past_key_values
-        last_hidden = outputs.hidden_states[-1][:, -1, :]
+        
+        if past_key_values is None:
+             last_token_indices = attention_mask.sum(1) - 1
+             batch_indices = torch.arange(input_ids.shape[0], device=input_ids.device)
+             last_hidden = outputs.hidden_states[-1][batch_indices, last_token_indices, :]
+        else:
+             last_hidden = outputs.hidden_states[-1][:, -1, :]
         
         curr_output_embedding = [] 
         curr_output_embedding.append(outputs.hidden_states[0])  # input embedding

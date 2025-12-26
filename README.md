@@ -26,7 +26,7 @@ Latent Collaboration in Multi-Agent Systems, based on the LatentMAS repository.
   <img src="assets/main_res.png" width="1000">
 </p>
 
-## 💡 Introduction
+## 💡 Introduction (Science-LatentMAS)
 
 
 **LatentMAS** is a flexible multi-agent reasoning framework that **moves agent collaboration from token space into the model’s latent space**.  This repo extends the original code to have more flexibility. 
@@ -41,6 +41,10 @@ Instead of producing long textual reasoning traces, agents communicate by **pass
   <img src="assets/main.png" width="1000">
 </p>
 
+
+**The Science-LatentMAS branch** is an extended version of LatentMAS designed to better support scientific research and discovery workflows. It introduces customizable agent roles and prompts (e.g., Researcher, Analyst), enabling LatentMAS to imitate different scientific reasoning and discovery schemes. It also provides hybrid text–latent generation, flexible agent ordering, and customizable thinking tokens, which further facilitate collaboration across different scientific research agents. 
+
+Overall, Science-LatentMAS offers a lightweight and flexible framework for structured scientific reasoning and discovery while remaining fully compatible with the original LatentMAS design.
 
 ## 📊 Experiments Overview
 

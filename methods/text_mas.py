@@ -25,7 +25,7 @@ class TextMASMethod:
         self.temperature = temperature
         self.top_p = top_p
         self.generate_bs = max(1, generate_bs)
-        self.agents = default_agents()
+        self.agents = getattr(args, "custom_agents", None) or default_agents()
         self.args = args
         self.method_name = "text_mas"
         self.task = args.task
@@ -40,7 +40,8 @@ class TextMASMethod:
         agent_traces: List[List[Dict]] = [[] for _ in range(batch_size)]
         final_texts = ["" for _ in range(batch_size)]
 
-        for agent in self.agents:
+        total_agents = len(self.agents)
+        for agent_idx, agent in enumerate(self.agents):
 
             if self.args.prompt == "hierarchical":
                 batch_messages = [
@@ -96,16 +97,19 @@ class TextMASMethod:
                 "judger": "Task Summrizer",
             }
 
+            is_last_agent = (agent_idx == total_agents - 1)
+
             for idx in range(batch_size):
 
                 text_out = generated_texts[idx].strip()
 
                 if self.args.prompt == "hierarchical":
-                    formatted_output = f"[{agent_name_map_for_prompt_hierarchical[agent.name]}]:\n{text_out}\n\n"
+                    agent_label = agent_name_map_for_prompt_hierarchical.get(agent.name, agent.name)
+                    formatted_output = f"[{agent_label}]:\n{text_out}\n\n"
                 else:
                     formatted_output = f"[{agent.name}]:\n{text_out}\n\n"
 
-                if agent.role != "judger":
+                if not is_last_agent:
 
                     contexts[idx] = f"{contexts[idx]}{formatted_output}"
                     history_contexts[idx] = f"{history_contexts[idx]}{formatted_output}"

@@ -1,10 +1,40 @@
+def _get_system_message(args):
+    enforce_qwen = not getattr(args, "do_not_enforce_qwen", False)
+    if enforce_qwen:
+        assert "qwen" in getattr(args, "model_name", "").lower(), "Qwen-specific prompt; use --do_not_enforce_qwen to allow non-Qwen models."
+        return "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
+    return "You are a helpful assistant."
+
+
+def _resolve_system_message(args, custom_system: str = None):
+    """Return the system message, honoring custom overrides and Qwen enforcement."""
+    if custom_system is not None:
+        return custom_system if custom_system != "" else None
+    return _get_system_message(args)
+
+
+def _render_custom_prompt(role: str, question: str, context: str, args):
+    """Render a custom prompt for a given role if provided in args.custom_prompts."""
+    prompts_cfg = getattr(args, "custom_prompts", None)
+    if not isinstance(prompts_cfg, dict):
+        return None, None
+    custom_system = prompts_cfg.get("system", None)
+    template = prompts_cfg.get(role)
+    if template is None:
+        return custom_system, None
+    try:
+        user_content = template.format(question=question, context=context)
+    except Exception:
+        user_content = template
+    return custom_system, user_content
+
 
 def build_agent_message_sequential_latent_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert method in ["latent_mas"], "this prompt only for latent_mas method"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    custom_system, user_prompt = _render_custom_prompt(role, question, context, args)
+    system_message = _resolve_system_message(args, custom_system)
 
     if role == "planner":
         user_prompt = f"""You are a Planner Agent. Given an input question, design a clear, step-by-step plan for how to solve the question.
@@ -108,19 +138,28 @@ Now, reason step by step and output the final answer inside \\boxed{{YOUR_FINAL_
 
         else: 
             raise NotImplementedError(f"Task {args.task} not implemented in v5 judger prompt.")
+
+    if user_prompt is None:
+        # Fallback for custom agent roles
+        user_prompt = f"""
+Question: {question}
+
+You are a helpful assistant. Reason step-by-step and provide a clear, concise response.
+"""
         
-    return [
-        {"role": "system", "content": system_message},
-        {"role": "user", "content": user_prompt},
-    ]
+    messages = []
+    if system_message:
+        messages.append({"role": "system", "content": system_message})
+    messages.append({"role": "user", "content": user_prompt})
+    return messages
 
 
 def build_agent_message_hierarchical_latent_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert method in ["latent_mas"], "this prompt only for latent_mas method"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    custom_system, user_content = _render_custom_prompt(role, question, context, args)
+    system_message = _resolve_system_message(args, custom_system)
 
     if args.task in ['gsm8k', 'aime2024', 'aime2025']:
         if role == "planner":
@@ -332,21 +371,29 @@ Input Question: {question}
 Your response:
 """
 
+    if user_content is None:
+        # Fallback for custom agent roles
+        user_content = f"""
+Question: {question}
+
+You are a helpful assistant. Reason step-by-step and provide a clear, concise response.
+"""
+
     return [
-        {"role": "system", "content": system_message},
+        *([{"role": "system", "content": system_message}] if system_message else []),
         {"role": "user", "content": user_content},
     ]
 
 
 def build_agent_messages_sequential_text_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert method in ["text_mas"], "only for text_mas method"
-    assert "qwen" in args.model_name.lower(), "only for qwen models"
 
     # truncate context if needed
     ctx = context[: args.text_mas_context_length]
+
+    custom_system, user_content = _render_custom_prompt(role, question, ctx, args)
+    system_message = _resolve_system_message(args, custom_system)
 
     if role == "planner":
         user_content = f"""
@@ -502,18 +549,31 @@ You must reason step-by-step to solve the **provided Target Question** without o
 Now, reason step by step and present your final answer clearly at the end.
 """
 
+    if user_content is None:
+        # Fallback for custom agent roles
+        user_content = f"""
+Question: {question}
+
+Context:
+{ctx}
+
+You are a helpful assistant. Reason step-by-step and provide a clear, concise response.
+"""
+
     return [
-        {"role": "system", "content": system_message},
+        *([{"role": "system", "content": system_message}] if system_message else []),
         {"role": "user", "content": user_content},
     ]
 
 
 def build_agent_messages_hierarchical_text_mas(role: str, question: str, context: str = "", method=None, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-    
     assert method in ["text_mas"], "this prompt only for text_mas method"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    ctx = context[: args.text_mas_context_length]
+    custom_system, user_content = _render_custom_prompt(role, question, ctx, args)
+    system_message = _resolve_system_message(args, custom_system)
+    user_content = user_content
     
     if args.task in ['gsm8k', 'aime2024', 'aime2025']:
         if role == "planner":
@@ -547,7 +607,7 @@ Your response:
 You are a task summarizer. Given the final answer inside \\boxed{{YOUR_FINAL_ANSWER}}.
 
 Content from Previous Agent:
-{context[:args.text_mas_context_length]}
+{ctx}
 
 Input Question: {question}
 
@@ -587,7 +647,7 @@ Your response:
 You are a task summarizer. Given the final answer inside \\boxed{{YOUR_FINAL_ANSWER}}.
 
 Content from Previous Agent:
-{context[:args.text_mas_context_length]}
+{ctx}
 
 Input Question: {question}
 
@@ -634,7 +694,7 @@ Your response:
 You are a task summarizer. Given the final answer in markdown python code block.
 
 Content from Previous Agent:
-{context[:args.text_mas_context_length]}
+{ctx}
 
 Input Question: {question}
 
@@ -676,7 +736,7 @@ Your response:
 You are a task summarizer. Given the input question and responses from previous agents as reference, reason step-by-step and put the final answer inside \\boxed{{YOUR_FINAL_ANSWER}}.
 
 Content from Previous Agent:
-{context[:args.text_mas_context_length]}
+{ctx}
 
 "Your final answer must be selected from 1 and 2. For example \\boxed{{1}} or \\boxed{{2}}. Do not add any other contents inside the box."
 
@@ -685,18 +745,28 @@ Input Question: {question}
 Your response:
 """
 
+    if user_content is None:
+        # Fallback for custom agent roles
+        user_content = f"""
+Question: {question}
+
+Context:
+{ctx}
+
+You are a helpful assistant. Reason step-by-step and provide a clear, concise response.
+"""
+
     return [
-        {"role": "system", "content": system_message},
+        *([{"role": "system", "content": system_message}] if system_message else []),
         {"role": "user", "content": user_content},
     ]
 
 
 def build_agent_messages_single_agent(question: str, args=None):
 
-    system_message = "You are Qwen, created by Alibaba Cloud. You are a helpful assistant."
-
     assert args.method in ["baseline"], "this prompt only for baseline method (single agent)"
-    assert "qwen" in args.model_name.lower(), "this prompt only for qwen models"
+
+    system_message = _get_system_message(args)
 
     task = args.task
 
@@ -763,4 +833,3 @@ Present your reasoning, and then clearly state your final answer at the end.
         {"role": "system", "content": system_message},
         {"role": "user", "content": user_content},
     ]
-

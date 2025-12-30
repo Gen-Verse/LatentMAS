@@ -251,7 +251,7 @@ CUDA_VISIBLE_DEVICES=0,1 python run.py --method latent_mas --model_name Qwen/Qwe
 
 > vLLM does **not** officially support modifying KV-cache or prompting via latent embeddings.
 > We modify the partial inner package inside vLLM backend for our method implementation.
-> Note minor numeric differences may arise compared to offical HF backend due to different decoding (generation) strategies. Please Use the HF backend to reproduce the official published results.
+> Note minor numeric differences may arise compared to official HF backend due to different decoding (generation) strategies. Please Use the HF backend to reproduce the official published results.
 
 ## 📚 Citation
 

@@ -88,7 +88,7 @@ def main():
     parser.add_argument("--method", choices=["baseline", "text_mas", "latent_mas"], required=True,
                         help="Which multi-agent method to run: 'baseline', 'text_mas', or 'latent_mas'.")
     parser.add_argument("--model_name", type=str, required=True,
-                        choices=["Qwen/Qwen3-4B", "Qwen/Qwen3-4B", "Qwen/Qwen3-14B"],
+                        choices=["Qwen/Qwen3-0.6B", "Qwen/Qwen3-4B", "Qwen/Qwen3-14B"],
                         help="Model choices to use for experiments (e.g. 'Qwen/Qwen3-14B').")
     parser.add_argument("--max_samples", type=int, default=-1, help="Number of questions to evaluate; set -1 to use all samples.")
     parser.add_argument("--task", choices=["gsm8k", "aime2024", "aime2025", "gpqa", "arc_easy", "arc_challenge", "mbppplus", 'humanevalplus', 'medqa'], default="gsm8k",

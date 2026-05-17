@@ -3,7 +3,12 @@ import csv
 import torch
 import matplotlib.pyplot as plt
 from typing import Dict, List, Optional, Tuple
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoProcessor, AutoTokenizer
+
+try:
+    from transformers import AutoModelForImageTextToText
+except ImportError:
+    AutoModelForImageTextToText = None
 
 try:
     from vllm import LLM, SamplingParams
@@ -31,11 +36,16 @@ class ModelWrapper:
     def __init__(self, model_name: str, device: torch.device, use_vllm: bool = False, args = None):
         self.model_name = model_name
         self.device = device
+        self.model_backend = self._resolve_model_backend(model_name, args)
         self.use_vllm = use_vllm and _HAS_VLLM
         self.vllm_engine = None
+        self.processor = None
         self.latent_space_realign = bool(getattr(args, "latent_space_realign", False)) if args else False
         self._latent_realign_matrices: Dict[int, Tuple[torch.Tensor, torch.Tensor]] = {}
         self.args = args
+
+        if self.model_backend == "vlm" and use_vllm:
+            raise ValueError("Qwen3.5 VLM support currently uses the Hugging Face backend; remove --use_vllm.")
 
         # for ablation
         self.pre_aligned = None
@@ -68,13 +78,30 @@ class ModelWrapper:
             return  # skip loading transformers model
 
         # fallback: normal transformers path
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-        _ensure_pad_token(self.tokenizer)
-        with torch.no_grad():
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=(torch.bfloat16 if torch.cuda.is_available() else torch.float32),
-            )
+        if self.model_backend == "vlm":
+            if AutoModelForImageTextToText is None:
+                raise ImportError(
+                    "AutoModelForImageTextToText is required for Qwen3.5 VLM support. "
+                    "Please use a Transformers version that supports Qwen3.5."
+                )
+            self.processor = AutoProcessor.from_pretrained(model_name)
+            self.tokenizer = getattr(self.processor, "tokenizer", None)
+            if self.tokenizer is None:
+                raise RuntimeError("The VLM processor does not expose a tokenizer for text-only prompts.")
+            _ensure_pad_token(self.tokenizer)
+            with torch.no_grad():
+                self.model = AutoModelForImageTextToText.from_pretrained(
+                    model_name,
+                    torch_dtype=(torch.bfloat16 if torch.cuda.is_available() else torch.float32),
+                )
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+            _ensure_pad_token(self.tokenizer)
+            with torch.no_grad():
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=(torch.bfloat16 if torch.cuda.is_available() else torch.float32),
+                )
         if len(self.tokenizer) != self.model.get_input_embeddings().weight.shape[0]:
             self.model.resize_token_embeddings(len(self.tokenizer))
         self.model.to(device)
@@ -84,7 +111,23 @@ class ModelWrapper:
         if self.latent_space_realign:
             self._ensure_latent_realign_matrix(self.model, self.device, args)
 
+    @staticmethod
+    def _resolve_model_backend(model_name: str, args = None) -> str:
+        requested = getattr(args, "model_backend", "auto") if args else "auto"
+        if requested not in {"auto", "llm", "vlm"}:
+            raise ValueError(f"Unsupported model backend: {requested}")
+        if requested != "auto":
+            return requested
+        lowered = model_name.lower()
+        if "qwen3.5" in lowered or "qwen3_5" in lowered:
+            return "vlm"
+        return "llm"
+
     def render_chat(self, messages: List[Dict], add_generation_prompt: bool = True) -> str:
+        if self.model_backend == "vlm" and self.processor is not None:
+            return self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=add_generation_prompt
+            )
         tpl = getattr(self.tokenizer, "chat_template", None)
         if tpl:
             return self.tokenizer.apply_chat_template(
@@ -99,15 +142,52 @@ class ModelWrapper:
             segments.append("<|assistant|>")
         return "\n".join(segments)
 
+    def _prepare_vlm_chat_input(
+        self, messages: List[Dict], add_generation_prompt: bool = True
+    ) -> Dict[str, torch.Tensor]:
+        encoded = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=add_generation_prompt,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        )
+        return {key: value for key, value in encoded.items() if torch.is_tensor(value)}
+
+    def _prepare_vlm_chat_batch(
+        self,
+        batch_messages: List[List[Dict]],
+        add_generation_prompt: bool = True,
+    ) -> Dict[str, torch.Tensor]:
+        encoded_items = [
+            self._prepare_vlm_chat_input(messages, add_generation_prompt=add_generation_prompt)
+            for messages in batch_messages
+        ]
+        padded = self.tokenizer.pad(
+            [
+                {
+                    "input_ids": item["input_ids"][0],
+                    "attention_mask": item["attention_mask"][0],
+                }
+                for item in encoded_items
+            ],
+            return_tensors="pt",
+            padding=True,
+        )
+        return {key: value for key, value in padded.items() if torch.is_tensor(value)}
+
     def prepare_chat_input(
         self, messages: List[Dict], add_generation_prompt: bool = True
     ) -> Tuple[str, torch.Tensor, torch.Tensor, List[str]]:
         prompt_text = self.render_chat(messages, add_generation_prompt=add_generation_prompt)
-        encoded = self.tokenizer(
-            prompt_text,
-            return_tensors="pt",
-            add_special_tokens=False,
-        )
+        if self.model_backend == "vlm" and self.processor is not None:
+            encoded = self._prepare_vlm_chat_input(messages, add_generation_prompt=add_generation_prompt)
+        else:
+            encoded = self.tokenizer(
+                prompt_text,
+                return_tensors="pt",
+                add_special_tokens=False,
+            )
         input_ids = encoded["input_ids"].to(self.device)
         attention_mask = encoded["attention_mask"].to(self.device)
         active_ids = input_ids[0][attention_mask[0].bool()].tolist()
@@ -122,12 +202,17 @@ class ModelWrapper:
         prompts: List[str] = []
         for messages in batch_messages:
             prompts.append(self.render_chat(messages, add_generation_prompt=add_generation_prompt))
-        encoded = self.tokenizer(
-            prompts,
-            return_tensors="pt",
-            padding=True,
-            add_special_tokens=False,
-        )
+        if self.model_backend == "vlm" and self.processor is not None:
+            encoded = self._prepare_vlm_chat_batch(
+                batch_messages, add_generation_prompt=add_generation_prompt
+            )
+        else:
+            encoded = self.tokenizer(
+                prompts,
+                return_tensors="pt",
+                padding=True,
+                add_special_tokens=False,
+            )
         input_ids = encoded["input_ids"].to(self.device)
         attention_mask = encoded["attention_mask"].to(self.device)
         tokens_batch: List[List[str]] = []
@@ -244,7 +329,7 @@ class ModelWrapper:
                     device=attention_mask.device,
                 )
                 attention_mask = torch.cat([past_mask, attention_mask], dim=-1)
-        outputs = self.model.generate(
+        generate_kwargs = dict(
             input_ids=input_ids,
             attention_mask=attention_mask,
             max_new_tokens=max_new_tokens,
@@ -255,8 +340,10 @@ class ModelWrapper:
             return_dict_in_generate=True,
             output_scores=False,
             past_key_values=past_key_values,
-            cache_position=cache_position,
         )
+        if cache_position is not None:
+            generate_kwargs["cache_position"] = cache_position
+        outputs = self.model.generate(**generate_kwargs)
         sequences = outputs.sequences
         generations: List[str] = []
         for idx, length in enumerate(prompt_lengths):
@@ -300,14 +387,23 @@ class ModelWrapper:
                 )
                 attention_mask = torch.cat([past_mask, attention_mask], dim=-1)
 
-        outputs = self.model(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            past_key_values=past_key_values,
-            use_cache=True,
-            output_hidden_states=True,
-            return_dict=True,
-        )
+        try:
+            outputs = self.model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                past_key_values=past_key_values,
+                use_cache=True,
+                output_hidden_states=True,
+                return_dict=True,
+            )
+        except TypeError as exc:
+            if self.model_backend == "vlm":
+                raise RuntimeError(
+                    "LatentMAS requires the VLM forward path to support input_ids, "
+                    "past_key_values, use_cache, and output_hidden_states. Baseline "
+                    "and TextMAS remain supported for this backend."
+                ) from exc
+            raise
         past = outputs.past_key_values
 
         e_t = outputs.hidden_states[0][:, -1, :]          # [B, D]
@@ -336,14 +432,23 @@ class ModelWrapper:
                 dtype=torch.long,
                 device=self.device,
             )
-            outputs = self.model(
-                inputs_embeds=latent_embed,
-                attention_mask=latent_mask,
-                past_key_values=past,
-                use_cache=True,
-                output_hidden_states=True,
-                return_dict=True,
-            )
+            try:
+                outputs = self.model(
+                    inputs_embeds=latent_embed,
+                    attention_mask=latent_mask,
+                    past_key_values=past,
+                    use_cache=True,
+                    output_hidden_states=True,
+                    return_dict=True,
+                )
+            except TypeError as exc:
+                if self.model_backend == "vlm":
+                    raise RuntimeError(
+                        "LatentMAS latent steps require the VLM forward path to support "
+                        "inputs_embeds with cached decoding. Baseline and TextMAS remain "
+                        "supported for this backend."
+                    ) from exc
+                raise
             past = outputs.past_key_values
             last_hidden = outputs.hidden_states[-1][:, -1, :]
 
@@ -413,4 +518,3 @@ class ModelWrapper:
             curr_output_embedding.append(latent_embed.detach())
 
         return past, torch.cat(curr_output_embedding, dim=1) # Output input embeddings
-

@@ -142,15 +142,46 @@ class ModelWrapper:
             segments.append("<|assistant|>")
         return "\n".join(segments)
 
+    def _prepare_vlm_chat_input(
+        self, messages: List[Dict], add_generation_prompt: bool = True
+    ) -> Dict[str, torch.Tensor]:
+        encoded = self.processor.apply_chat_template(
+            messages,
+            add_generation_prompt=add_generation_prompt,
+            tokenize=True,
+            return_dict=True,
+            return_tensors="pt",
+        )
+        return {key: value for key, value in encoded.items() if torch.is_tensor(value)}
+
+    def _prepare_vlm_chat_batch(
+        self,
+        batch_messages: List[List[Dict]],
+        add_generation_prompt: bool = True,
+    ) -> Dict[str, torch.Tensor]:
+        encoded_items = [
+            self._prepare_vlm_chat_input(messages, add_generation_prompt=add_generation_prompt)
+            for messages in batch_messages
+        ]
+        padded = self.tokenizer.pad(
+            [
+                {
+                    "input_ids": item["input_ids"][0],
+                    "attention_mask": item["attention_mask"][0],
+                }
+                for item in encoded_items
+            ],
+            return_tensors="pt",
+            padding=True,
+        )
+        return {key: value for key, value in padded.items() if torch.is_tensor(value)}
+
     def prepare_chat_input(
         self, messages: List[Dict], add_generation_prompt: bool = True
     ) -> Tuple[str, torch.Tensor, torch.Tensor, List[str]]:
         prompt_text = self.render_chat(messages, add_generation_prompt=add_generation_prompt)
         if self.model_backend == "vlm" and self.processor is not None:
-            encoded = self.processor(
-                text=prompt_text,
-                return_tensors="pt",
-            )
+            encoded = self._prepare_vlm_chat_input(messages, add_generation_prompt=add_generation_prompt)
         else:
             encoded = self.tokenizer(
                 prompt_text,
@@ -172,10 +203,8 @@ class ModelWrapper:
         for messages in batch_messages:
             prompts.append(self.render_chat(messages, add_generation_prompt=add_generation_prompt))
         if self.model_backend == "vlm" and self.processor is not None:
-            encoded = self.processor(
-                text=prompts,
-                return_tensors="pt",
-                padding=True,
+            encoded = self._prepare_vlm_chat_batch(
+                batch_messages, add_generation_prompt=add_generation_prompt
             )
         else:
             encoded = self.tokenizer(

@@ -387,23 +387,14 @@ class ModelWrapper:
                 )
                 attention_mask = torch.cat([past_mask, attention_mask], dim=-1)
 
-        try:
-            outputs = self.model(
-                input_ids=input_ids,
-                attention_mask=attention_mask,
-                past_key_values=past_key_values,
-                use_cache=True,
-                output_hidden_states=True,
-                return_dict=True,
-            )
-        except TypeError as exc:
-            if self.model_backend == "vlm":
-                raise RuntimeError(
-                    "LatentMAS requires this VLM text model forward path to support input_ids, "
-                    "past_key_values, use_cache, and output_hidden_states. Baseline and TextMAS "
-                    "remain supported for this backend."
-                ) from exc
-            raise
+        outputs = self.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            past_key_values=past_key_values,
+            use_cache=True,
+            output_hidden_states=True,
+            return_dict=True,
+        )
         past = outputs.past_key_values
 
         e_t = outputs.hidden_states[0][:, -1, :]          # [B, D]
@@ -432,23 +423,14 @@ class ModelWrapper:
                 dtype=torch.long,
                 device=self.device,
             )
-            try:
-                outputs = self.model(
-                    inputs_embeds=latent_embed,
-                    attention_mask=latent_mask,
-                    past_key_values=past,
-                    use_cache=True,
-                    output_hidden_states=True,
-                    return_dict=True,
-                )
-            except TypeError as exc:
-                if self.model_backend == "vlm":
-                    raise RuntimeError(
-                        "LatentMAS latent steps require this VLM text model forward path to support "
-                        "inputs_embeds with cached decoding. Baseline and TextMAS remain supported "
-                        "for this backend."
-                    ) from exc
-                raise
+            outputs = self.model(
+                inputs_embeds=latent_embed,
+                attention_mask=latent_mask,
+                past_key_values=past,
+                use_cache=True,
+                output_hidden_states=True,
+                return_dict=True,
+            )
             past = outputs.past_key_values
             last_hidden = outputs.hidden_states[-1][:, -1, :]
 

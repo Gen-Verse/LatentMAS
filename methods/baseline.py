@@ -4,6 +4,15 @@ from models import ModelWrapper
 from prompts import build_agent_messages_single_agent, get_assistant_think_prefill
 from utils import extract_gsm8k_answer, normalize_answer, extract_markdown_python_block, run_with_timeout
 
+__author__ = "Lineesha Kamana, Himon Thakur"
+__copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
+__credits__ = ["Lineesha Kamana", "Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Lineesha Kamana"
+__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__status__ = "prototype"
+
 
 class BaselineMethod:
     def __init__(
@@ -15,6 +24,7 @@ class BaselineMethod:
         top_p: float = 0.95,
         generate_bs: int = 1,
         use_vllm: bool = False,
+        use_llamacpp: bool = False,
         args=None,
     ) -> None:
         self.model = model
@@ -23,6 +33,7 @@ class BaselineMethod:
         self.top_p = top_p
         self.generate_bs = max(1, generate_bs)
         self.use_vllm = use_vllm
+        self.use_llamacpp = use_llamacpp
         self.method_name = "baseline"
         self.args = args
         self.task = args.task
@@ -53,7 +64,14 @@ class BaselineMethod:
                 active_ids = ids_row[mask_row.bool()].tolist()
                 tokens_batch.append(self.model.tokenizer.convert_ids_to_tokens(active_ids))
         
-        if self.use_vllm:
+        if self.use_llamacpp:
+            generated_batch = self.model.llamacpp_generate_text_batch(
+                prompts,
+                max_new_tokens=self.max_new_tokens,
+                temperature=self.temperature,
+                top_p=self.top_p,
+            )
+        elif self.use_vllm:
             generated_batch = self.model.vllm_generate_text_batch(
                 prompts,
                 max_new_tokens=self.max_new_tokens,

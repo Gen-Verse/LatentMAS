@@ -23,6 +23,15 @@ from models import ModelWrapper
 from utils import auto_device, set_seed
 import time
 
+__author__ = "Lineesha Kamana, Himon Thakur"
+__copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
+__credits__ = ["Lineesha Kamana", "Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Lineesha Kamana"
+__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__status__ = "prototype"
+
 
 def evaluate(preds: List[Dict]) -> Tuple[float, int]:
     total = len(preds)
@@ -89,8 +98,7 @@ def main():
     parser.add_argument("--method", choices=["baseline", "text_mas", "latent_mas"], required=True,
                         help="Which multi-agent method to run: 'baseline', 'text_mas', or 'latent_mas'.")
     parser.add_argument("--model_name", type=str, required=True,
-                        choices=["Qwen/Qwen3-4B", "Qwen/Qwen3-4B", "Qwen/Qwen3-14B"],
-                        help="Model choices to use for experiments (e.g. 'Qwen/Qwen3-14B').")
+                        help="Model to use for experiments: any HF model id (e.g. 'Qwen/Qwen3-14B') or a local path.")
     parser.add_argument("--max_samples", type=int, default=-1, help="Number of questions to evaluate; set -1 to use all samples.")
     parser.add_argument("--task", choices=["gsm8k", "aime2024", "aime2025", "gpqa", "arc_easy", "arc_challenge", "mbppplus", 'humanevalplus', 'medqa', 'mgsm'], default="gsm8k",
                         help="Dataset/task to evaluate. Controls which loader is used.")
@@ -118,15 +126,31 @@ def main():
     parser.add_argument("--tensor_parallel_size", type=int, default=1, help="How many GPUs vLLM should shard the model across")
     parser.add_argument("--gpu_memory_utilization", type=float, default=0.9, help="Target GPU memory utilization for vLLM")
 
+    # llama.cpp support (fast GGUF inference; text generation only)
+    parser.add_argument("--use_llamacpp", action="store_true", help="Use llama.cpp (GGUF) backend for fast inference")
+    parser.add_argument("--llamacpp_model_path", type=str, default=None, help="Path to a local GGUF model file (required with --use_llamacpp)")
+    parser.add_argument("--llamacpp_n_ctx", type=int, default=4096, help="Context window size for llama.cpp")
+    parser.add_argument("--llamacpp_n_gpu_layers", type=int, default=-1, help="Layers to offload to GPU in llama.cpp (-1 = all)")
+    parser.add_argument("--llamacpp_n_threads", type=int, default=None, help="CPU threads for llama.cpp (None = auto)")
+    parser.add_argument("--llamacpp_verbose", action="store_true", help="Verbose llama.cpp logging")
+
     args = parser.parse_args()
-    
+
+    if args.use_vllm and args.use_llamacpp:
+        raise ValueError("Choose only one inference backend: --use_vllm or --use_llamacpp.")
+    if args.use_llamacpp and args.method == "latent_mas":
+        raise ValueError(
+            "The llama.cpp backend does not support latent_mas (no hidden-state access). "
+            "Use --method baseline or text_mas, or switch to the transformers/vLLM backend."
+        )
+
     if args.method == "latent_mas" and args.use_vllm:
-        args.use_second_HF_model = True 
+        args.use_second_HF_model = True
         args.enable_prefix_caching = True
-    
+
     set_seed(args.seed)
     device = auto_device(args.device)
-    model = ModelWrapper(args.model_name, device, use_vllm=args.use_vllm, args=args)
+    model = ModelWrapper(args.model_name, device, use_vllm=args.use_vllm, use_llamacpp=args.use_llamacpp, args=args)
     
     start_time = time.time()
 
@@ -143,6 +167,7 @@ def main():
             **common_kwargs,
             generate_bs=args.generate_bs,
             use_vllm=args.use_vllm,
+            use_llamacpp=args.use_llamacpp,
             args=args
         )
     elif args.method == "text_mas":

@@ -1,0 +1,58 @@
+# Unsloth LoRA fine-tuning config (optional).
+# Run with: python train.py --config configs/unsloth_train.yaml
+# Requires the optional extra: pip install -e .[unsloth]
+
+model:
+  model_name: "Qwen/Qwen3-4B"   # HF id or local path of the base model
+  max_seq_length: 2048
+  load_in_4bit: true            # 4-bit QLoRA; set false for 16-bit LoRA
+  dtype: null                   # null = auto (bf16/fp16 chosen by Unsloth)
+
+lora:
+  r: 16
+  lora_alpha: 16
+  lora_dropout: 0.0
+  bias: "none"
+  use_gradient_checkpointing: "unsloth"   # "unsloth" | true | false
+  use_rslora: false
+  random_state: 42
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+data:
+  # HF dataset id, or a local .json / .jsonl path.
+  dataset_name: "yahma/alpaca-cleaned"
+  dataset_split: "train"
+  # dataset_config: null        # optional HF dataset config/subset name
+  text_field: "text"            # column used for SFT text
+  # messages_field: "messages"  # set instead of text_field to render chat templates
+
+training:
+  output_dir: "outputs/unsloth"
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 4
+  warmup_steps: 5
+  max_steps: 60                 # > 0 takes precedence over num_train_epochs
+  num_train_epochs: 1
+  learning_rate: 2.0e-4
+  logging_steps: 1
+  optim: "adamw_8bit"
+  weight_decay: 0.01
+  lr_scheduler_type: "linear"
+  packing: false
+  report_to: "none"
+  seed: 42
+
+save:
+  save_method: "lora"           # "lora" | "merged_16bit" | "merged_4bit"
+  output_dir: "outputs/unsloth-final"
+  # Export to GGUF so the result can be served by the llama.cpp backend:
+  #   python run.py ... --use_llamacpp --llamacpp_model_path outputs/unsloth-final/<file>.gguf
+  gguf: false
+  gguf_quant: "q4_k_m"

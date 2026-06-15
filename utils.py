@@ -15,7 +15,18 @@ def set_seed(seed: int) -> None:
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-def auto_device(device: Optional[str] = None) -> torch.device:
+def load_yaml_config(path: str) -> dict:
+    """Load a YAML config file into a dict. Used by the optional training utilities."""
+    import yaml
+
+    with open(path, "r") as f:
+        config = yaml.safe_load(f)
+    return config or {}
+
+
+def auto_device(device: Optional[str] = None):
+    if device == "auto":
+        return "auto"
     if device is not None:
         return torch.device(device)
     if torch.cuda.is_available():
@@ -58,6 +69,15 @@ def extract_markdown_python_block(text: str) -> Optional[str]:
 # to run python
 import traceback
 from multiprocessing import Process, Manager
+
+__author__ = "Lineesha Kamana, Himon Thakur"
+__copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
+__credits__ = ["Lineesha Kamana", "Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Lineesha Kamana"
+__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__status__ = "prototype"
 def run_with_timeout(code, timeout):
     def worker(ns, code):
         try:

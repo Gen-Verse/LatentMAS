@@ -114,6 +114,12 @@ This directory contains scripts for post-hoc analysis and robustness checks:
 
 ## Typical Workflow
 
+> This code lives at `src/multilingual-latent-reasoning/` within the
+> [MultilingualLatentMAS](../../README.md) repo. The commands below assume you are
+> **inside this directory** (`cd src/multilingual-latent-reasoning`). The
+> `run_*_agent_similarity.py` / `run_latent_mas_mgsm_batch_analysis.py` scripts add the
+> repo root to `sys.path` automatically, so they may also be launched from the repo root.
+
 ```bash
 # 1. Generate multilingual reasoning traces
 bash run.sh

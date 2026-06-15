@@ -8,6 +8,15 @@ from utils import extract_gsm8k_answer, normalize_answer, extract_markdown_pytho
 import argparse
 import pdb
 
+__author__ = "Lineesha Kamana, Himon Thakur"
+__copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
+__credits__ = ["Lineesha Kamana", "Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Lineesha Kamana"
+__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__status__ = "prototype"
+
 class TextMASMethod:
     def __init__(
         self,
@@ -84,7 +93,14 @@ class TextMASMethod:
                     active_ids = ids_row[mask_row.bool()].tolist()
                     tokens_batch.append(self.model.tokenizer.convert_ids_to_tokens(active_ids))
 
-            if self.model.use_vllm:
+            if self.model.use_llamacpp:
+                generated_texts = self.model.llamacpp_generate_text_batch(
+                    prompts,
+                    max_new_tokens=self.max_new_tokens_each,
+                    temperature=self.temperature,
+                    top_p=self.top_p,
+                )
+            elif self.model.use_vllm:
                 generated_texts = self.model.vllm_generate_text_batch(
                     prompts,
                     max_new_tokens=self.max_new_tokens_each,

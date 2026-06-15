@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multilingual-latent-mas"
+version = "0.0.1"
+description = "A structured multi-agent reasoning framework that moves agent collaboration into the model's latent space."
+readme = "README.md"
+authors = [
+    { name = "Lineesha Kamana", email = "lpk5305@psu.edu" },
+    { name = "Himon Thakur", email = "hthakur@uccs.edu" }
+]
+license = { text = "Apache-2.0" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "transformers",
+    "torch",
+    "numpy",
+    "tqdm",
+    "accelerate",
+    "datasets",
+    "pandas",
+    "matplotlib",
+    "scipy",
+]
+
+# Optional, modular integrations. Install with e.g. `pip install -e .[unsloth]`,
+# `pip install -e .[llamacpp]`, `pip install -e .[vllm]`, or `pip install -e .[all]`.
+[project.optional-dependencies]
+# Fast fine-tuning / training (see training/ and configs/unsloth_train.yaml).
+unsloth = [
+    "unsloth",
+    "trl",
+    "peft",
+    "bitsandbytes",
+    "pyyaml",
+]
+# Fast GGUF inference backend (see --use_llamacpp).
+llamacpp = [
+    "llama-cpp-python",
+]
+# Fast inference backend already supported by the codebase.
+vllm = [
+    "vllm",
+]
+all = [
+    "unsloth",
+    "trl",
+    "peft",
+    "bitsandbytes",
+    "pyyaml",
+    "llama-cpp-python",
+    "vllm",
+]
+
+[tool.setuptools]
+# Importable packages. The research code under src/multilingual-latent-reasoning/
+# is run as standalone scripts (it adds the repo root to sys.path itself) and is
+# intentionally not packaged here.
+packages = [
+    "methods",
+    "training",
+]
+py-modules = ["data", "models", "prompts", "run", "train", "utils"]

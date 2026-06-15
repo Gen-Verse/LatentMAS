@@ -5,6 +5,15 @@ import torch
 from typing import Dict, List, Optional, Tuple
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+__author__ = "Lineesha Kamana, Himon Thakur"
+__copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
+__credits__ = ["Lineesha Kamana", "Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Lineesha Kamana"
+__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__status__ = "prototype"
+
 try:
     # Avoid accidentally importing a vendored `vllm/` inside the repo.
     spec = importlib.util.find_spec("vllm")
@@ -33,6 +42,16 @@ except Exception:
     _HAS_VLLM = False
 
 
+# Optional llama.cpp backend for fast (GGUF) inference. Imported lazily/optionally
+# so the dependency is not required unless `--use_llamacpp` is requested.
+try:
+    from llama_cpp import Llama
+    _HAS_LLAMACPP = True
+except Exception:
+    Llama = None
+    _HAS_LLAMACPP = False
+
+
 def _ensure_pad_token(tokenizer: AutoTokenizer) -> None:
     if tokenizer.pad_token_id is None:
         if tokenizer.eos_token is not None:
@@ -41,8 +60,10 @@ def _ensure_pad_token(tokenizer: AutoTokenizer) -> None:
             tokenizer.add_special_tokens({"pad_token": "<pad>"})
 
 
-def _default_model_dtype(device: torch.device) -> torch.dtype:
-    if device.type == "cuda":
+def _default_model_dtype(device) -> torch.dtype:
+    if device == "auto":
+        return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    if hasattr(device, "type") and device.type == "cuda":
         return torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
     return torch.float32
 
@@ -87,11 +108,13 @@ def _past_length(past_key_values: Optional[Tuple]) -> int:
 
 
 class ModelWrapper:
-    def __init__(self, model_name: str, device: torch.device, use_vllm: bool = False, args = None):
+    def __init__(self, model_name: str, device: torch.device, use_vllm: bool = False, use_llamacpp: bool = False, args = None):
         self.model_name = model_name
         self.device = device
         self.use_vllm = use_vllm and _HAS_VLLM
+        self.use_llamacpp = use_llamacpp
         self.vllm_engine = None
+        self.llamacpp_engine = None
         # HF_device: the device where the HF (transformers) model should be placed
         # Ensure the attribute always exists to avoid AttributeError in latent/vllm paths.
         self.HF_device = None
@@ -101,6 +124,37 @@ class ModelWrapper:
 
         # for ablation
         self.pre_aligned = None
+
+        if self.use_llamacpp:
+            if not _HAS_LLAMACPP:
+                raise ImportError(
+                    "llama-cpp-python is not installed. Install the optional extra with "
+                    "`pip install -e .[llamacpp]` (or `pip install llama-cpp-python`) to use --use_llamacpp."
+                )
+            if self.latent_space_realign:
+                raise ValueError(
+                    "latent_space_realign / latent_mas are not supported by the llama.cpp backend "
+                    "(GGUF inference does not expose hidden states). Use the transformers or vLLM backend."
+                )
+            model_path = getattr(args, "llamacpp_model_path", None)
+            if not model_path:
+                raise ValueError(
+                    "--use_llamacpp requires --llamacpp_model_path pointing to a local GGUF file."
+                )
+            print(f"[llama.cpp] Loading GGUF model from {model_path}")
+            self.llamacpp_engine = Llama(
+                model_path=model_path,
+                n_ctx=int(getattr(args, "llamacpp_n_ctx", 4096)),
+                n_gpu_layers=int(getattr(args, "llamacpp_n_gpu_layers", -1)),
+                n_threads=getattr(args, "llamacpp_n_threads", None),
+                seed=int(getattr(args, "seed", 0)) if args else 0,
+                verbose=bool(getattr(args, "llamacpp_verbose", False)),
+            )
+            # A HF tokenizer is still used to render chat templates consistently
+            # with the rest of the pipeline; generation itself runs in llama.cpp.
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
+            _ensure_pad_token(self.tokenizer)
+            return  # skip loading the transformers model
 
         if self.use_vllm:
             
@@ -116,14 +170,24 @@ class ModelWrapper:
             
             use_second_hf = bool(getattr(args, "use_second_HF_model", False)) if args else False
             if use_second_hf:
-                self.HF_model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    torch_dtype=_default_model_dtype(torch.device(args.device2)),
-                ).to(args.device2).eval() 
+                dev2 = args.device2
+                dtype2 = _default_model_dtype(dev2)
+                if dev2 == "auto":
+                    self.HF_model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=dtype2,
+                        device_map="auto",
+                    ).eval()
+                    self.HF_device = self.HF_model.device
+                else:
+                    self.HF_model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=dtype2,
+                    ).to(dev2).eval() 
+                    self.HF_device = dev2
                 self.embedding_layer = self.HF_model.get_input_embeddings()
-                self.HF_device = args.device2
-                # if self.latent_space_realign:
-                self._ensure_latent_realign_matrix(self.HF_model, torch.device(self.HF_device), args)
+                real_dev2 = torch.device(self.HF_device) if isinstance(self.HF_device, str) else self.HF_device
+                self._ensure_latent_realign_matrix(self.HF_model, real_dev2, args)
             elif self.latent_space_realign:
                 raise ValueError("latent_space_realign requires --use_second_HF_model when using vLLM backend.")
             _ensure_pad_token(self.tokenizer)
@@ -133,13 +197,26 @@ class ModelWrapper:
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         _ensure_pad_token(self.tokenizer)
         with torch.no_grad():
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                torch_dtype=_default_model_dtype(device),
-            )
+            if device == "auto":
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=_default_model_dtype(device),
+                    device_map="auto",
+                )
+            else:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=_default_model_dtype(device),
+                )
         if len(self.tokenizer) != self.model.get_input_embeddings().weight.shape[0]:
             self.model.resize_token_embeddings(len(self.tokenizer))
-        self.model.to(device)
+        
+        if device == "auto":
+            self.device = self.model.device
+        else:
+            self.model.to(device)
+            self.device = device
+            
         self.model.eval()
         if hasattr(self.model.config, "use_cache"):
             self.model.config.use_cache = True
@@ -216,7 +293,31 @@ class ModelWrapper:
         outputs = self.vllm_engine.generate(prompts, sampling_params)
         generations = [out.outputs[0].text.strip() for out in outputs]
         return generations
-    
+
+    def llamacpp_generate_text_batch(
+        self,
+        prompts: List[str],
+        *,
+        max_new_tokens: int = 256,
+        temperature: float = 0.7,
+        top_p: float = 0.95,
+    ) -> List[str]:
+        if not self.llamacpp_engine:
+            raise RuntimeError(
+                "llama.cpp engine not initialized. Pass use_llamacpp=True to ModelWrapper."
+            )
+        # llama-cpp-python evaluates one prompt at a time; iterate over the batch.
+        generations: List[str] = []
+        for prompt in prompts:
+            out = self.llamacpp_engine(
+                prompt,
+                max_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            )
+            generations.append(out["choices"][0]["text"].strip())
+        return generations
+
     def _build_latent_realign_matrix(self, model, device, args) -> Tuple[torch.Tensor, torch.Tensor]:
         input_embeds = model.get_input_embeddings() if hasattr(model, "get_input_embeddings") else None
         output_embeds = model.get_output_embeddings() if hasattr(model, "get_output_embeddings") else None

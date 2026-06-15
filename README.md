@@ -1,5 +1,5 @@
 # Setup & Run
-- ativate conda env `conda activate vllm_env`
+- acivate conda env `conda activate vllm_env`
 - `export HF_TOKEN="hf_..."` and use a hugging face token so you aren't subject to anonymous rate limits
 - **run baseline** `python run.py --method baseline --model_name ./models/qwen3-4b --task gsm8k --max_samples 1 --generate_bs 1 --device mps`
 - **run latentMAS** `python run.py --method latent_mas --model_name ./models/qwen3-4b --task gsm8k  --max_samples 1 --generate_bs 1 --device mps --prompt sequential`
@@ -33,9 +33,12 @@ for L in "${langs[@]}"; do
 ```
 
 
-- how to observe **latent space**
+- run the **whole pipeline** (optional fine-tuning → evaluation) from one config:
+  `./scripts/run_pipeline.sh` (see `configs/pipeline.env`).
+
+- how to observe **latent space** (analysis code lives under `src/`; run from the repo root):
 ```
-python multilingual-latent-reasoning/run_latent_mas_agent_similarity.py \
+python src/multilingual-latent-reasoning/run_latent_mas_agent_similarity.py \
   --model_name Qwen/Qwen3-4B \
   --languages bn,de,en,es,fr,ja,ru,sw,te,th,zh \
   --ref_lang en \
@@ -207,6 +210,62 @@ If you want **vLLM support**, also install:
 pip install vllm
 ```
 
+### 🧩 Optional integrations (modular)
+
+The repo ships optional, import-guarded extras. Install only what you need — the
+core inference path never requires them.
+
+```bash
+pip install -e .[vllm]       # vLLM fast inference
+pip install -e .[llamacpp]   # llama.cpp (GGUF) fast inference
+pip install -e .[unsloth]    # Unsloth fast LoRA training/fine-tuning
+pip install -e .[all]        # everything
+```
+
+**Llama.cpp inference** — serve a local GGUF model for fast text generation
+(`baseline` / `text_mas` only; `latent_mas` needs hidden states and is unsupported):
+
+```bash
+python run.py --method baseline --model_name Qwen/Qwen3-4B --task gsm8k \
+  --use_llamacpp --llamacpp_model_path /path/to/model-Q4_K_M.gguf \
+  --llamacpp_n_ctx 4096 --llamacpp_n_gpu_layers -1
+```
+
+See `configs/llamacpp.yaml` for the documented knobs.
+
+**Unsloth training/fine-tuning** — config-driven LoRA SFT:
+
+```bash
+python train.py --config configs/unsloth_train.yaml
+# override any value inline:
+python train.py --config configs/unsloth_train.yaml --set training.max_steps=120
+```
+
+Set `save.gguf: true` in the config to export the fine-tuned model to GGUF and
+serve it back through the `--use_llamacpp` backend above.
+
+### 🧰 Global config & full pipeline
+
+Instead of passing flags by hand, keep all variable settings in one place —
+`configs/pipeline.env` — and run the whole pipeline (optional fine-tuning →
+evaluation with the chosen backend) with a single script:
+
+```bash
+# edit configs/pipeline.env, then:
+./scripts/run_pipeline.sh
+
+# or override any variable inline (no file edits needed):
+BACKEND=vllm METHOD=baseline TASK=gsm8k ./scripts/run_pipeline.sh
+RUN_TRAINING=1 BACKEND=llamacpp LLAMACPP_MODEL_PATH=/path/model.gguf ./scripts/run_pipeline.sh
+```
+
+`configs/pipeline.env` controls the model, task, method, generation params,
+inference `BACKEND` (`hf` | `vllm` | `llamacpp`), the training stage
+(`RUN_TRAINING`), and where logs land (`RESULTS_DIR`). The script picks the right
+`run.py` flags for the selected backend and tees output to a timestamped log under
+`results/`. Pass an alternate env file as the first argument:
+`./scripts/run_pipeline.sh path/to/my.env`.
+
 ## 🚀 Quick Start
 
 ### 1. Clone the repo
@@ -221,18 +280,38 @@ cd LatentMAS
 ```
 LatentMAS/
 │── run.py                 # Main entry for experiments
-│── models.py              # Wrapper for HF + vLLM + latent realignment
+│── train.py               # Optional Unsloth fine-tuning entry
+│── models.py              # Wrapper for HF + vLLM + llama.cpp + latent realignment
 │── methods/
 │   ├── baseline.py        # Single-agent baseline
 │   ├── text_mas.py        # Token-space multi-agent method
 │   └── latent_mas.py      # Latent-space multi-agent (our method)
+│── training/              # Optional, modular Unsloth LoRA trainer
+│── configs/
+│   ├── pipeline.env       # Global pipeline config (sourced by run_pipeline.sh)
+│   ├── unsloth_train.yaml # Unsloth fine-tuning config
+│   └── llamacpp.yaml      # llama.cpp backend reference config
+│── scripts/
+│   ├── run_pipeline.sh    # End-to-end: optional training -> evaluation
+│   ├── run_mgsm_all.sh    # Sweep LatentMAS over MGSM languages
+│   └── run_mgsm_text_mas.sh
 │── prompts.py             # Prompt constructors
 │── data.py                # Dataset loaders
 │── data/                  # Provided data + figures (We give medqa.json as an example here)
-│── utils.py               # Answer parsing / timeout / helpers
+│── utils.py               # Answer parsing / timeout / config loader / helpers
 │── example_logs/          # Example logs from LatentMAS
+│── src/
+│   └── multilingual-latent-reasoning/   # Latent-reasoning analysis scripts (truncation,
+│                                        # logit lens, similarity); run from repo root
+│── multilingual-latent-reasoner/        # Git submodule (cisnlp/multilingual-latent-reasoner)
+│── pyproject.toml         # Packaging + optional extras (vllm / llamacpp / unsloth / all)
 │── requirements.txt
 ```
+
+> The analysis code under `src/multilingual-latent-reasoning/` adds the repo root to
+> `sys.path` itself, so launch those scripts from the repository root. The
+> `multilingual-latent-reasoner/` directory is a git submodule — clone with
+> `git clone --recurse-submodules`, or run `git submodule update --init` after cloning.
 
 
 ## 🧪 Running Experiments (standard HF backend)

@@ -1,0 +1,25 @@
+# Reference defaults for the optional llama.cpp (GGUF) inference backend.
+# The backend is driven by CLI flags on run.py; this file documents the knobs and
+# recommended values. Requires the optional extra: pip install -e .[llamacpp]
+#
+# Example:
+#   python run.py \
+#     --method baseline --task gsm8k \
+#     --model_name Qwen/Qwen3-4B \
+#     --use_llamacpp \
+#     --llamacpp_model_path /path/to/Qwen3-4B-Q4_K_M.gguf \
+#     --llamacpp_n_ctx 4096 \
+#     --llamacpp_n_gpu_layers -1
+#
+# Notes:
+#   * llama.cpp serves GGUF weights only (convert/quantize with llama.cpp or export
+#     from Unsloth via save.gguf in configs/unsloth_train.yaml).
+#   * It does text generation only — latent_mas is NOT supported (no hidden states).
+#   * --model_name is still used to load the HF tokenizer for chat templating.
+
+llamacpp:
+  model_path: null        # REQUIRED: local path to a .gguf file (--llamacpp_model_path)
+  n_ctx: 4096             # context window (--llamacpp_n_ctx)
+  n_gpu_layers: -1        # layers offloaded to GPU; -1 = all (--llamacpp_n_gpu_layers)
+  n_threads: null         # CPU threads; null = auto (--llamacpp_n_threads)
+  verbose: false          # llama.cpp logging (--llamacpp_verbose)

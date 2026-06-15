@@ -77,10 +77,10 @@ dependencies:
       # vLLM dependencies
       ##################################################
 
-      - compressed-tensors==0.7.1
+      - compressed-tensors==0.8.0
       - xgrammar==0.1.7
       - outlines-core>=0.1.14,<0.2
-      - lm-format-enforcer==0.10.6
+      - lm-format-enforcer==0.10.9
 
 
       ##################################################
@@ -93,15 +93,15 @@ dependencies:
       - rich==13.9.4
       - click==8.1.7
       - filelock==3.16.1
-      - fsspec==2024.10.0
+      - fsspec==2024.9.0
       - cloudpickle==3.1.0
       - psutil==6.1.0
       - py-cpuinfo==9.0.0
 
       # Data formats
       - pyarrow==18.0.0
-      - dill==0.3.9
-      - multiprocess==0.70.17
+      - dill==0.3.8
+      - multiprocess==0.70.16
       - xxhash==3.5.0
 
       # Math

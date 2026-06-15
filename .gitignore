@@ -48,5 +48,5 @@ venv.bak/
 /cache/
 /results/
 /outputs/
-multilingual-latent-reasoner/
-.claude/
+/multilingual-latent-reasoner/
+/.claude/

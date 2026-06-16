@@ -445,12 +445,20 @@ class ModelWrapper:
     def _last_token_hidden_by_layer(self, outputs, last_token_index: int) -> torch.Tensor:
         hidden_by_layer = []
         final_norm = getattr(getattr(self.model, "model", None), "norm", None)
+        norm_device = None
+        if final_norm is not None:
+            try:
+                norm_device = next(final_norm.parameters()).device
+            except StopIteration:
+                norm_device = None
         num_layers = len(outputs.hidden_states)
         for layer_idx, h in enumerate(outputs.hidden_states):
             h_last = h[:, last_token_index, :]
             if final_norm is not None and layer_idx != num_layers - 1:
+                if norm_device is not None and h_last.device != norm_device:
+                    h_last = h_last.to(norm_device)
                 h_last = final_norm(h_last)
-            hidden_by_layer.append(h_last.detach())
+            hidden_by_layer.append(h_last.detach().to("cpu"))
         return torch.stack(hidden_by_layer, dim=1)
 
     @torch.no_grad()

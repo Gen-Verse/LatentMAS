@@ -60,6 +60,7 @@ def get_gold_first_token_id(model: ModelWrapper, gold: str) -> int:
 def compute_logitlens_for_trace(model: ModelWrapper, trace: torch.Tensor, gold: str) -> Dict:
     gold_id = get_gold_first_token_id(model, gold)
     lm_head = model.model.lm_head if hasattr(model.model, "lm_head") else model.model.get_output_embeddings()
+    lm_head_device = next(lm_head.parameters()).device
     step_count = trace.shape[1]
     layer_count = trace.shape[2]
     logprob = np.zeros((step_count, layer_count), dtype=np.float32)
@@ -67,7 +68,7 @@ def compute_logitlens_for_trace(model: ModelWrapper, trace: torch.Tensor, gold: 
 
     for step_idx in range(step_count):
         for layer_idx in range(layer_count):
-            h = trace[0, step_idx, layer_idx, :].to(model.device)
+            h = trace[0, step_idx, layer_idx, :].to(lm_head_device)
             logits = lm_head(h).to(torch.float32)
             log_probs = torch.log_softmax(logits, dim=-1)
             target_logit = logits[gold_id]

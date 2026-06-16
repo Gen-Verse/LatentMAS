@@ -23,6 +23,7 @@ TOP_P="${TOP_P:-0.95}"
 SEED="${SEED:-42}"
 EMERGENCE_RANK_THRESHOLD="${EMERGENCE_RANK_THRESHOLD:-1000}"
 EMERGENCE_LAYER_STRATEGY="${EMERGENCE_LAYER_STRATEGY:-final_layer}"
+CHECKPOINT_EVERY="${CHECKPOINT_EVERY:-1}"
 RUN_NAME="${RUN_NAME:-mgsm_all_${PROMPT}_csv}"
 OUT_DIR="${OUT_DIR:-src/multilingual-latent-reasoning/results_latent_mas_agents}"
 
@@ -35,6 +36,7 @@ echo "  latent     : ${LATENT_STEPS}"
 echo "  max tokens : ${MAX_NEW_TOKENS}"
 echo "  run_name   : ${RUN_NAME}"
 echo "  out_dir    : ${OUT_DIR}"
+echo "  checkpoint : every ${CHECKPOINT_EVERY} example(s)"
 echo "============================================================="
 
 python src/multilingual-latent-reasoning/run_latent_mas_mgsm_batch_analysis.py \
@@ -51,5 +53,6 @@ python src/multilingual-latent-reasoning/run_latent_mas_mgsm_batch_analysis.py \
   --seed "${SEED}" \
   --emergence_rank_threshold "${EMERGENCE_RANK_THRESHOLD}" \
   --emergence_layer_strategy "${EMERGENCE_LAYER_STRATEGY}" \
+  --checkpoint_every "${CHECKPOINT_EVERY}" \
   --out_dir "${OUT_DIR}" \
   --run_name "${RUN_NAME}"

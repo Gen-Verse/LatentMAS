@@ -276,6 +276,20 @@ def agent_metrics(agent: Dict, rank_threshold: int, layer_strategy: str) -> Dict
     }
 
 
+def metric_keys() -> List[str]:
+    return [
+        "shape",
+        "final_step_last_layer_gold_logprob",
+        "final_step_last_layer_gold_rank",
+        "best_gold_rank",
+        "best_gold_logprob",
+        "emergence_step",
+        "latent_reasoning_score",
+        "rank_threshold",
+        "emergence_layer_strategy",
+    ]
+
+
 def agent_cosine(a: Dict, b: Dict) -> float:
     ah = a["hidden"]
     bh = b["hidden"]
@@ -297,6 +311,122 @@ def write_csv(path: Path, rows: List[Dict]) -> None:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
+
+
+def append_csv(path: Path, row: Dict, fieldnames: List[str]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    exists = path.exists() and path.stat().st_size > 0
+    with path.open("a", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+        if not exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def partial_example_fieldnames() -> List[str]:
+    fields = [
+        "lang",
+        "idx",
+        "correct",
+        "prediction",
+        "gold",
+        "latent_reasoning_score",
+        "question",
+        "raw_prediction",
+    ]
+    for agent in default_agents():
+        for key in metric_keys():
+            fields.append(f"{agent.role}_{key}")
+    return fields
+
+
+def partial_agent_fieldnames() -> List[str]:
+    return [
+        "lang",
+        "idx",
+        "role",
+        "agent_name",
+        "correct",
+        "prediction",
+        "gold",
+        *metric_keys(),
+    ]
+
+
+def partial_rows_for_example(ex: Dict, rank_threshold: int, layer_strategy: str) -> Tuple[Dict, List[Dict]]:
+    role_scores = []
+    example_row = {
+        "lang": ex["lang"],
+        "idx": ex["idx"],
+        "correct": ex["correct"],
+        "prediction": ex["prediction"],
+        "gold": ex["gold"],
+        "question": ex["question"],
+        "raw_prediction": ex["raw_prediction"],
+    }
+    agent_rows = []
+    for role, agent in ex["agents"].items():
+        metrics = agent_metrics(agent, rank_threshold, layer_strategy)
+        role_scores.append(metrics["latent_reasoning_score"])
+        for key, value in metrics.items():
+            example_row[f"{role}_{key}"] = value
+        agent_rows.append(
+            {
+                "lang": ex["lang"],
+                "idx": ex["idx"],
+                "role": role,
+                "agent_name": agent["name"],
+                "correct": ex["correct"],
+                "prediction": ex["prediction"],
+                "gold": ex["gold"],
+                **metrics,
+            }
+        )
+    example_row["latent_reasoning_score"] = float(np.mean(role_scores)) if role_scores else 0.0
+    return example_row, agent_rows
+
+
+def checkpoint_example(out_dir: Path, ex: Dict, rank_threshold: int, layer_strategy: str) -> None:
+    example_row, agent_rows = partial_rows_for_example(ex, rank_threshold, layer_strategy)
+    append_csv(
+        out_dir / "latent_agent_similarity_examples.partial.csv",
+        example_row,
+        partial_example_fieldnames(),
+    )
+    agent_fields = partial_agent_fieldnames()
+    for row in agent_rows:
+        append_csv(
+            out_dir / "latent_agent_similarity_agent_examples.partial.csv",
+            row,
+            agent_fields,
+        )
+
+
+def checkpoint_language_trace(out_dir: Path, meta: Dict, lang: str, examples: List[Dict]) -> None:
+    shard_dir = out_dir / "trace_shards"
+    shard_dir.mkdir(parents=True, exist_ok=True)
+    with (shard_dir / f"{lang}.pkl").open("wb") as f:
+        pickle.dump(
+            {
+                "meta": meta,
+                "lang": lang,
+                "traces": {lang: examples},
+            },
+            f,
+            protocol=pickle.HIGHEST_PROTOCOL,
+        )
+
+
+def prepare_checkpoint_files(out_dir: Path, keep_existing: bool) -> None:
+    if keep_existing:
+        return
+    for rel in [
+        "latent_agent_similarity_examples.partial.csv",
+        "latent_agent_similarity_agent_examples.partial.csv",
+    ]:
+        path = out_dir / rel
+        if path.exists():
+            path.unlink()
 
 
 def write_cosine_matrix_csv(path: Path, langs: List[str], cosine_nested: Dict[str, Dict[str, float]]) -> None:
@@ -420,6 +550,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out_dir", type=str, default="src/multilingual-latent-reasoning/results_latent_mas_agents")
     parser.add_argument("--run_name", type=str, default=None)
+    parser.add_argument("--checkpoint_every", type=int, default=1, help="Write partial CSVs and trace shard every N examples. Use 0 to disable.")
+    parser.add_argument("--keep_existing_partials", action="store_true", help="Append to existing partial CSVs instead of replacing them at run start.")
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -427,13 +559,45 @@ def main():
     model = ModelWrapper(args.model_name, auto_device(args.device), use_vllm=False, args=model_args)
 
     langs = [x.strip().lower() for x in args.languages.split(",") if x.strip()]
+    example_label = "all" if args.max_examples < 0 else f"first{args.max_examples}"
+    run_name = args.run_name or f"mgsm_{example_label}_{args.prompt}"
+    out_dir = Path(args.out_dir) / args.model_name.split("/")[-1] / run_name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    prepare_checkpoint_files(out_dir, args.keep_existing_partials)
+
+    meta = {
+        "model": args.model_name,
+        "languages": langs,
+        "prompt": args.prompt,
+        "latent_steps": args.latent_steps,
+        "max_examples": args.max_examples,
+        "emergence_rank_threshold": args.emergence_rank_threshold,
+        "emergence_layer_strategy": args.emergence_layer_strategy,
+        "cosine_definition": "Average across common example indices, agents, latent steps, and layers.",
+        "checkpoint_every": args.checkpoint_every,
+    }
+
     traces: Dict[str, List[Dict]] = {}
     for lang in langs:
         print(f"=== {lang} ===")
         traces[lang] = []
-        for item in first_mgsm_items(lang, args.max_examples):
+        for item_num, item in enumerate(first_mgsm_items(lang, args.max_examples), start=1):
             print(f"  idx={item['idx']}")
-            traces[lang].append(run_one_example(model, args, lang, item))
+            ex = run_one_example(model, args, lang, item)
+            traces[lang].append(ex)
+            if args.checkpoint_every > 0:
+                checkpoint_example(
+                    out_dir,
+                    ex,
+                    args.emergence_rank_threshold,
+                    args.emergence_layer_strategy,
+                )
+            if args.checkpoint_every > 0 and item_num % args.checkpoint_every == 0:
+                checkpoint_language_trace(out_dir, meta, lang, traces[lang])
+                print(f"  [checkpoint] wrote partial rows and {lang} trace shard through idx={item['idx']}", flush=True)
+        if args.checkpoint_every > 0:
+            checkpoint_language_trace(out_dir, meta, lang, traces[lang])
+            print(f"  [checkpoint] finalized {lang} trace shard", flush=True)
 
     language_summary = {
         lang: summarize_language(traces[lang], args.emergence_rank_threshold, args.emergence_layer_strategy)
@@ -441,22 +605,8 @@ def main():
     }
     cosine_matrix, cosine_nested = build_all_pairs_cosine(traces, langs)
 
-    example_label = "all" if args.max_examples < 0 else f"first{args.max_examples}"
-    run_name = args.run_name or f"mgsm_{example_label}_{args.prompt}"
-    out_dir = Path(args.out_dir) / args.model_name.split("/")[-1] / run_name
-    out_dir.mkdir(parents=True, exist_ok=True)
-
     payload = {
-        "meta": {
-            "model": args.model_name,
-            "languages": langs,
-            "prompt": args.prompt,
-            "latent_steps": args.latent_steps,
-            "max_examples": args.max_examples,
-            "emergence_rank_threshold": args.emergence_rank_threshold,
-            "emergence_layer_strategy": args.emergence_layer_strategy,
-            "cosine_definition": "Average across common example indices, agents, latent steps, and layers.",
-        },
+        "meta": meta,
         "languages": langs,
         "traces": traces,
         "language_summary": language_summary,

@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run LatentMAS sequential analysis on the full MGSM test set for all languages.
+# This uses the src/multilingual-latent-reasoning batch analysis script and writes
+# CSV/JSON/pickle outputs under src/multilingual-latent-reasoning/results_latent_mas_agents/.
+#
+# Usage:
+#   bash scripts/run_mgsm_latent_mas_full_csv.sh
+#
+# Optional overrides:
+#   MODEL_NAME=Qwen/Qwen3-4B DEVICE=auto RUN_NAME=mgsm_all_sequential_csv bash scripts/run_mgsm_latent_mas_full_csv.sh
+
+MODEL_NAME="${MODEL_NAME:-Qwen/Qwen3-4B}"
+LANGUAGES="${LANGUAGES:-bn,de,en,es,fr,ja,ru,sw,te,th,zh}"
+PROMPT="${PROMPT:-sequential}"
+LATENT_STEPS="${LATENT_STEPS:-3}"
+MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-512}"
+DEVICE="${DEVICE:-auto}"
+DEVICE2="${DEVICE2:-cuda:1}"
+TEMPERATURE="${TEMPERATURE:-0.6}"
+TOP_P="${TOP_P:-0.95}"
+SEED="${SEED:-42}"
+EMERGENCE_RANK_THRESHOLD="${EMERGENCE_RANK_THRESHOLD:-1000}"
+EMERGENCE_LAYER_STRATEGY="${EMERGENCE_LAYER_STRATEGY:-final_layer}"
+RUN_NAME="${RUN_NAME:-mgsm_all_${PROMPT}_csv}"
+OUT_DIR="${OUT_DIR:-src/multilingual-latent-reasoning/results_latent_mas_agents}"
+
+echo "================ Full MGSM LatentMAS CSV run ================"
+echo "  model      : ${MODEL_NAME}"
+echo "  languages  : ${LANGUAGES}"
+echo "  prompt     : ${PROMPT}"
+echo "  device     : ${DEVICE}"
+echo "  latent     : ${LATENT_STEPS}"
+echo "  max tokens : ${MAX_NEW_TOKENS}"
+echo "  run_name   : ${RUN_NAME}"
+echo "  out_dir    : ${OUT_DIR}"
+echo "============================================================="
+
+python src/multilingual-latent-reasoning/run_latent_mas_mgsm_batch_analysis.py \
+  --model_name "${MODEL_NAME}" \
+  --languages "${LANGUAGES}" \
+  --prompt "${PROMPT}" \
+  --latent_steps "${LATENT_STEPS}" \
+  --max_examples -1 \
+  --device "${DEVICE}" \
+  --device2 "${DEVICE2}" \
+  --max_new_tokens "${MAX_NEW_TOKENS}" \
+  --temperature "${TEMPERATURE}" \
+  --top_p "${TOP_P}" \
+  --seed "${SEED}" \
+  --emergence_rank_threshold "${EMERGENCE_RANK_THRESHOLD}" \
+  --emergence_layer_strategy "${EMERGENCE_LAYER_STRATEGY}" \
+  --out_dir "${OUT_DIR}" \
+  --run_name "${RUN_NAME}"

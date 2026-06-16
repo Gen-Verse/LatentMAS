@@ -1,0 +1,404 @@
+{
+  "meta": {
+    "model": "Qwen/Qwen3-4B",
+    "languages": [
+      "bn",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "ja",
+      "ru",
+      "sw",
+      "te",
+      "th",
+      "zh"
+    ],
+    "prompt": "sequential",
+    "latent_steps": 3,
+    "max_examples": 1,
+    "emergence_rank_threshold": 1000,
+    "emergence_layer_strategy": "final_layer",
+    "cosine_definition": "Average across common example indices, agents, latent steps, and layers."
+  },
+  "languages": [
+    "bn",
+    "de",
+    "en",
+    "es",
+    "fr",
+    "ja",
+    "ru",
+    "sw",
+    "te",
+    "th",
+    "zh"
+  ],
+  "language_summary": {
+    "bn": {
+      "accuracy": 0.0,
+      "correct": 0,
+      "total": 1,
+      "latent_reasoning_score": 0.3125,
+      "agent_latent_reasoning_score": {
+        "planner": 0.25,
+        "critic": 0.0,
+        "refiner": 0.0,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": false,
+          "prediction": "5",
+          "gold": "18"
+        }
+      ]
+    },
+    "de": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.5625,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.25,
+        "refiner": 0.5,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "en": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.5,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.5,
+        "refiner": 0.0,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "es": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.625,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.5,
+        "refiner": 0.5,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "fr": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.625,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.5,
+        "refiner": 0.5,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "ja": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.5,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.5,
+        "refiner": 0.0,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "ru": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.4375,
+      "agent_latent_reasoning_score": {
+        "planner": 0.25,
+        "critic": 0.25,
+        "refiner": 0.25,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "sw": {
+      "accuracy": 0.0,
+      "correct": 0,
+      "total": 1,
+      "latent_reasoning_score": 0.5625,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.5,
+        "refiner": 0.25,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": false,
+          "prediction": "32",
+          "gold": "18"
+        }
+      ]
+    },
+    "te": {
+      "accuracy": 0.0,
+      "correct": 0,
+      "total": 1,
+      "latent_reasoning_score": 0.375,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.0,
+        "refiner": 0.0,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": false,
+          "prediction": "4",
+          "gold": "18"
+        }
+      ]
+    },
+    "th": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.375,
+      "agent_latent_reasoning_score": {
+        "planner": 0.25,
+        "critic": 0.25,
+        "refiner": 0.0,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    },
+    "zh": {
+      "accuracy": 1.0,
+      "correct": 1,
+      "total": 1,
+      "latent_reasoning_score": 0.75,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.75,
+        "refiner": 0.75,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        }
+      ]
+    }
+  },
+  "cosine_similarity_matrix": {
+    "bn": {
+      "bn": 1.0,
+      "de": 0.7558533251285553,
+      "en": 0.7204865962266922,
+      "es": 0.7475179582834244,
+      "fr": 0.7506218701601028,
+      "ja": 0.7908333986997604,
+      "ru": 0.8291288614273071,
+      "sw": 0.7217029482126236,
+      "te": 0.8572251796722412,
+      "th": 0.8908844739198685,
+      "zh": 0.6896099895238876
+    },
+    "de": {
+      "bn": 0.7558533251285553,
+      "de": 1.0,
+      "en": 0.8350349068641663,
+      "es": 0.9063611030578613,
+      "fr": 0.9181305766105652,
+      "ja": 0.7914380878210068,
+      "ru": 0.7406383603811264,
+      "sw": 0.7570551186800003,
+      "te": 0.7651223540306091,
+      "th": 0.7481481730937958,
+      "zh": 0.7420627325773239
+    },
+    "en": {
+      "bn": 0.7204865962266922,
+      "de": 0.8350349068641663,
+      "en": 1.0,
+      "es": 0.8542214632034302,
+      "fr": 0.8363856077194214,
+      "ja": 0.7696927487850189,
+      "ru": 0.7342070639133453,
+      "sw": 0.6841600984334946,
+      "te": 0.7365121692419052,
+      "th": 0.7310258001089096,
+      "zh": 0.7390042841434479
+    },
+    "es": {
+      "bn": 0.7475179582834244,
+      "de": 0.9063611030578613,
+      "en": 0.8542214632034302,
+      "es": 1.0,
+      "fr": 0.9291241466999054,
+      "ja": 0.783976137638092,
+      "ru": 0.7453528344631195,
+      "sw": 0.7545136660337448,
+      "te": 0.760919064283371,
+      "th": 0.7488208115100861,
+      "zh": 0.7479861974716187
+    },
+    "fr": {
+      "bn": 0.7506218701601028,
+      "de": 0.9181305766105652,
+      "en": 0.8363856077194214,
+      "es": 0.9291241466999054,
+      "fr": 1.0,
+      "ja": 0.7911199033260345,
+      "ru": 0.73326276242733,
+      "sw": 0.7592723369598389,
+      "te": 0.7608704417943954,
+      "th": 0.7471051812171936,
+      "zh": 0.740796372294426
+    },
+    "ja": {
+      "bn": 0.7908333986997604,
+      "de": 0.7914380878210068,
+      "en": 0.7696927487850189,
+      "es": 0.783976137638092,
+      "fr": 0.7911199033260345,
+      "ja": 1.0,
+      "ru": 0.7203223556280136,
+      "sw": 0.6753014028072357,
+      "te": 0.7693421542644501,
+      "th": 0.7711983621120453,
+      "zh": 0.7282946407794952
+    },
+    "ru": {
+      "bn": 0.8291288614273071,
+      "de": 0.7406383603811264,
+      "en": 0.7342070639133453,
+      "es": 0.7453528344631195,
+      "fr": 0.73326276242733,
+      "ja": 0.7203223556280136,
+      "ru": 1.0,
+      "sw": 0.7123082876205444,
+      "te": 0.7739583551883698,
+      "th": 0.8240529745817184,
+      "zh": 0.719575971364975
+    },
+    "sw": {
+      "bn": 0.7217029482126236,
+      "de": 0.7570551186800003,
+      "en": 0.6841600984334946,
+      "es": 0.7545136660337448,
+      "fr": 0.7592723369598389,
+      "ja": 0.6753014028072357,
+      "ru": 0.7123082876205444,
+      "sw": 1.0,
+      "te": 0.7077853828668594,
+      "th": 0.7129741162061691,
+      "zh": 0.6795724332332611
+    },
+    "te": {
+      "bn": 0.8572251796722412,
+      "de": 0.7651223540306091,
+      "en": 0.7365121692419052,
+      "es": 0.760919064283371,
+      "fr": 0.7608704417943954,
+      "ja": 0.7693421542644501,
+      "ru": 0.7739583551883698,
+      "sw": 0.7077853828668594,
+      "te": 1.0,
+      "th": 0.7851143479347229,
+      "zh": 0.6772862076759338
+    },
+    "th": {
+      "bn": 0.8908844739198685,
+      "de": 0.7481481730937958,
+      "en": 0.7310258001089096,
+      "es": 0.7488208115100861,
+      "fr": 0.7471051812171936,
+      "ja": 0.7711983621120453,
+      "ru": 0.8240529745817184,
+      "sw": 0.7129741162061691,
+      "te": 0.7851143479347229,
+      "th": 1.0,
+      "zh": 0.6910784840583801
+    },
+    "zh": {
+      "bn": 0.6896099895238876,
+      "de": 0.7420627325773239,
+      "en": 0.7390042841434479,
+      "es": 0.7479861974716187,
+      "fr": 0.740796372294426,
+      "ja": 0.7282946407794952,
+      "ru": 0.719575971364975,
+      "sw": 0.6795724332332611,
+      "te": 0.6772862076759338,
+      "th": 0.6910784840583801,
+      "zh": 1.0
+    }
+  }
+}

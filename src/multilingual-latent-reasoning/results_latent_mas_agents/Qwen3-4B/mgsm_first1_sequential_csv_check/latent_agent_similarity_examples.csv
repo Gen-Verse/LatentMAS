@@ -1,0 +1,184 @@
+lang,idx,correct,prediction,gold,question,raw_prediction,cosine_to_bn,cosine_to_de,cosine_to_en,cosine_to_es,cosine_to_fr,cosine_to_ja,cosine_to_ru,cosine_to_sw,cosine_to_te,cosine_to_th,cosine_to_zh,planner_shape,planner_final_step_last_layer_gold_logprob,planner_final_step_last_layer_gold_rank,planner_best_gold_rank,planner_best_gold_logprob,planner_emergence_step,planner_latent_reasoning_score,planner_rank_threshold,planner_emergence_layer_strategy,critic_shape,critic_final_step_last_layer_gold_logprob,critic_final_step_last_layer_gold_rank,critic_best_gold_rank,critic_best_gold_logprob,critic_emergence_step,critic_latent_reasoning_score,critic_rank_threshold,critic_emergence_layer_strategy,refiner_shape,refiner_final_step_last_layer_gold_logprob,refiner_final_step_last_layer_gold_rank,refiner_best_gold_rank,refiner_best_gold_logprob,refiner_emergence_step,refiner_latent_reasoning_score,refiner_rank_threshold,refiner_emergence_layer_strategy,judger_shape,judger_final_step_last_layer_gold_logprob,judger_final_step_last_layer_gold_rank,judger_best_gold_rank,judger_best_gold_logprob,judger_emergence_step,judger_latent_reasoning_score,judger_rank_threshold,judger_emergence_layer_strategy,latent_reasoning_score
+bn,0,False,5,18,জেনেটের হাঁসগুলি প্রতিদিন 16টি করে ডিম পাড়ে। তিনি প্রতিদিন প্রাতরাশে তিনটি করে ডিম খান এবং বন্ধুদের জন্য প্রতিদিন চারটি ডিম দিয়ে মাফিন তৈরি করেন। অবশিষ্ট হাঁসের ডিমগুলি তিনি প্রতিদিন কৃষকদের বাজারে প্রতি ডিম $2 দরে বিক্রয় করেন। তিনি কৃষকদের বাজারে প্রতিদিন কত ডলার উপার্জন করেন?,"<think>
+চলুন বাংলায় ধাপে ধাপে যুক্তি করি।
+</think>
+
+1. **হাঁসগুলির ডিমের মোট সংখ্যা**: জেনেটের হাঁসগুলি প্রতিদিন 16টি ডিম পাড়ে।  
+   → মোট ডিম = 16টি
+
+2. **প্রাতরাশে খাওয়া ডিমের সংখ্যা**: তিনি প্রতিদিন প্রাতরাশে 3টি ডিম খান।  
+   → খাওয়া ডিম = 3টি
+
+3. **বন্ধুদের জন্য মাফিন তৈরি করার জন্য ব্যবহৃত ডিমের সংখ্যা**: তিনি প্রতিদিন 4টি ডিম বন্ধুদের জন্য মাফিন তৈরি করেন।  
+   → মাফিন জন্য ব্যবহৃত ডিম = 4টি
+
+4. **অবশিষ্ট ডিমের সংখ্যা**:  
+   → অবশিষ্ট ডিম = মোট ডিম - খাওয়া ডিম - মাফিন জন্য ব্যবহৃত ডিম  
+   → অবশিষ্ট ডিম = 16 - 3 - 4 = **9টি**
+
+5. **কৃষকদের বাজারে বিক্রয় করা ডিমের দর**: প্রতি ডিম",1.0,0.7558533251285553,0.7204865962266922,0.7475179582834244,0.7506218701601028,0.7908333986997604,0.8291288614273071,0.7217029482126236,0.8572251796722412,0.8908844739198685,0.6896099895238876,4x37x2560,-9.48420238494873,729.0,8.0,-9.48420238494873,3,0.25,1000,final_layer,4x37x2560,-14.031720161437988,2114.0,8.0,-10.435707092285156,,0.0,1000,final_layer,4x37x2560,-29.750032424926758,33116.0,8.0,-8.789837837219238,,0.0,1000,final_layer,1x37x2560,-0.9760205149650574,1.0,1.0,-0.9760205149650574,0,1.0,1000,final_layer,0.3125
+de,0,True,18,18,Janets Enten legen 16 Eier pro Tag. Sie isst drei jeden Morgen zum Frühstück und backt mit vier jeden Tag Muffins für ihre Freunde. Den Rest verkauft sie täglich auf dem Bauernmarkt für 2 US-Dollar pro frischem Entenei. Wie viel Dollar nimmt sie täglich auf dem Bauernmarkt ein?,"<think>
+Lassen Sie uns Schritt für Schritt auf Deutsch überlegen.
+</think>
+
+</think>
+
+**Schritt 1: Bestimmen der Gesamtanzahl der Eier pro Tag**  
+Janets Enten legen 16 Eier pro Tag.  
+$$ \text{Gesamtanzahl der Eier} = 16 $$
+
+**Schritt 2: Berechnen der Eier, die nicht verkauft werden**  
+Janet isst 3 Eier jeden Morgen zum Frühstück und backt 4 Eier jeden Tag für ihre Freunde.  
+$$ \text{Eier, die nicht auf dem Bauernmarkt verkauft werden} = 3 + 4 = 7 $$
+
+**Schritt 3: Berechnen der Eier, die auf dem Bauernmarkt verkauft werden**  
+$$ \text{Eier, die auf dem Bauernmarkt verkauft werden} = 16 - 7 = 9 $$
+
+**Schritt 4: Berechnen des Geldes, das auf dem Bauernmarkt eingezogen wird**  
+Janet verkauft jede Ei für 2 US-Dollar.  
+$$ \text{Geld, das auf dem Bauernmarkt eingezogen wird} = 9 \times 2 = 18 $$
+
+$$
+\boxed{18}
+$$",0.7558533251285553,1.0,0.8350349068641663,0.9063611030578613,0.9181305766105652,0.7914380878210068,0.7406383603811264,0.7570551186800003,0.7651223540306091,0.7481481730937958,0.7420627325773239,4x37x2560,-16.814252853393555,113.0,8.0,-11.09916877746582,2,0.5,1000,final_layer,4x37x2560,-25.562501907348633,266.0,8.0,-10.016427993774414,3,0.25,1000,final_layer,4x37x2560,-21.059133529663086,7783.0,8.0,-9.523726463317871,2,0.5,1000,final_layer,1x37x2560,-4.866442680358887,5.0,5.0,-4.866442680358887,0,1.0,1000,final_layer,0.5625
+en,0,True,18,18,Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?,"<think>
+Let's reason step by step in English.
+</think>
+
+</think>
+
+To determine how much Janet makes every day at the farmers' market, we need to follow these steps:
+
+1. **Calculate the total number of eggs laid per day**: Janet’s ducks lay 16 eggs per day.
+2. **Subtract the eggs she eats for breakfast**: She eats 3 eggs every morning, so we subtract 3 from 16.
+3. **Subtract the eggs used for baking muffins**: She uses 4 eggs to bake muffins for her friends, so we subtract 4 from the remaining eggs.
+4. **Calculate the number of eggs sold at the market**: The remaining eggs after eating and baking are sold at the market.
+5. **Calculate the total earnings from the eggs sold**: Each egg is sold for $2, so we multiply the number of eggs sold by $2 to get the total amount made at the farmers' market.
+
+Now, let's perform the calculations:
+
+1. Total eggs laid per day = 16  
+2. Eggs eaten for breakfast = 3  
+3. Eggs used for baking = 4  
+4. Eggs sold at the market = 16 - 3 - 4 = 9  
+5. Total earnings = 9 × $2 = $18  
+
+$$
+\boxed{18}
+$$",0.7204865962266922,0.8350349068641663,1.0,0.8542214632034302,0.8363856077194214,0.7696927487850189,0.7342070639133453,0.6841600984334946,0.7365121692419052,0.7310258001089096,0.7390042841434479,4x37x2560,-22.439428329467773,108.0,8.0,-6.921477317810059,2,0.5,1000,final_layer,4x37x2560,-33.125,2319.0,8.0,-9.617409706115723,2,0.5,1000,final_layer,4x37x2560,-31.3125,4279.0,8.0,-9.078733444213867,,0.0,1000,final_layer,1x37x2560,-15.452481269836426,62.0,59.0,-12.044234275817871,0,1.0,1000,final_layer,0.5
+es,0,True,18,18,Los patos de Janet ponen 16 huevos por día. Ella come tres en el desayuno todas las mañanas y usa cuatro para hornear magdalenas para sus amigos todos los días. Vende lo que sobra en el mercado de productores diariamente a $2 el huevo fresco de pato. ¿Cuánto gana en dólares todos los días en el mercado de productores?,"<think>
+Razonemos paso a paso en español.
+</think>
+
+<label>
+Para resolver la pregunta, primero calculamos cuántos huevos tiene disponible Janet al final del día después de usarlos para su desayuno y hornear magdalenas. Luego, multiplicamos el número de huevos que vende por el precio por huevo para obtener el ingreso diario.
+
+1. **Calcular huevos totales diarios:** Janet recibe 16 huevos por día.
+2. **Restar huevos consumidos:** Ella come 3 huevos al día y usa 4 para hornear magdalenas, lo que suma 3 + 4 = 7 huevos utilizados.
+3. **Calcular huevos que vende:** 16 huevos totales - 7 huevos utilizados = 9 huevos que vende.
+4. **Calcular ingreso diario:** 9 huevos x $2 por huevo = $18.
+
+Por lo tanto, Janet gana $\boxed{18}$ dólares todos los días en el mercado de productores.
+</label>",0.7475179582834244,0.9063611030578613,0.8542214632034302,1.0,0.9291241466999054,0.783976137638092,0.7453528344631195,0.7545136660337448,0.760919064283371,0.7488208115100861,0.7479861974716187,4x37x2560,-19.035144805908203,1947.0,8.0,-10.010605812072754,2,0.5,1000,final_layer,4x37x2560,-22.875152587890625,800.0,8.0,-7.741307258605957,2,0.5,1000,final_layer,4x37x2560,-22.0927677154541,31902.0,8.0,-9.42699146270752,2,0.5,1000,final_layer,1x37x2560,-1.4085444211959839,2.0,2.0,-1.4085444211959839,0,1.0,1000,final_layer,0.625
+fr,0,True,18,18,"Les canes de Janet pondent 16 œufs par jour. Chaque matin, elle en mange trois au petit déjeuner et en utilise quatre autres pour préparer des muffins pour ses amis. Ce qui reste, elle le vend quotidiennement au marché fermier, au prix de 2 $ l'œuf de cane frais. Combien (en dollars) gagne-t-elle chaque jour au marché fermier ?","<think>
+Raisonnons étape par étape en français.
+</think>
+
+<reasoning>
+1. **Calcul du nombre d'œufs restants après le petit déjeuner et la préparation des muffins** : Janet pond 16 œufs par jour. Elle mange 3 œufs au petit déjeuner et utilise 4 œufs pour les muffins. Donc, le nombre d'œufs restants est $ 16 - 3 - 4 = 9 $ œufs.
+2. **Calcul du montant total gagné au marché fermier** : Chaque œuf est vendu à 2 $, donc le montant total gagné est $ 9 \times 2 = 18 $ dollars.
+</reasoning>
+
+\boxed{18}",0.7506218701601028,0.9181305766105652,0.8363856077194214,0.9291241466999054,1.0,0.7911199033260345,0.73326276242733,0.7592723369598389,0.7608704417943954,0.7471051812171936,0.740796372294426,4x37x2560,-15.008219718933105,92.0,8.0,-9.748281478881836,2,0.5,1000,final_layer,4x37x2560,-31.65627098083496,49694.0,8.0,-9.082000732421875,2,0.5,1000,final_layer,4x37x2560,-23.40643882751465,1450.0,8.0,-9.607172966003418,2,0.5,1000,final_layer,1x37x2560,-0.8879064917564392,1.0,1.0,-0.8879064917564392,0,1.0,1000,final_layer,0.625
+ja,0,True,18,18,ジャネットのアヒルは1日に16個の卵を生みます。ジャネットは毎朝朝食の一環で3個を消費し、毎日4個使って友達向けにマフィンを焼きます。残りを市場で1個あたり2ドルの価格で売ります。彼女は毎日市場でいくら手に入れていますか？,"<think>
+日本語で段階的に考えましょう。
+</think>
+
+1. ジャネットのアヒルは1日に16個の卵を生みます。  
+2. 朝食で3個の卵を消費します。  
+3. 友達向けにマフィンを焼くために4個の卵を使います。  
+4. 16 - 3 - 4 = 9個の卵が残ります。  
+5. 残った9個の卵を市場で1個あたり2ドルで売ります。  
+6. 9 × 2 = 18ドルです。  
+
+したがって、ジャネットは毎日市場で18ドル手に入れています。  
+\boxed{18}",0.7908333986997604,0.7914380878210068,0.7696927487850189,0.783976137638092,0.7911199033260345,1.0,0.7203223556280136,0.6753014028072357,0.7693421542644501,0.7711983621120453,0.7282946407794952,4x37x2560,-15.322652816772461,101.0,8.0,-8.434406280517578,2,0.5,1000,final_layer,4x37x2560,-21.26251983642578,640.0,8.0,-10.697953224182129,2,0.5,1000,final_layer,4x37x2560,-26.250036239624023,1161.0,8.0,-10.28840160369873,,0.0,1000,final_layer,1x37x2560,-0.5125938057899475,1.0,1.0,-0.5125938057899475,0,1.0,1000,final_layer,0.5
+ru,0,True,18,18,"Утки Дженет несут по 16 яиц в день. Она ест три на завтрак каждое утро и печет кексы для своих друзей каждый день, используя четыре. Остаток она каждый день продает на фермерском рынке по 2 $ за свежее утиное яйцо. Сколько в долларах она зарабатывает на фермерском рынке каждый день?","<think>
+Давайте рассуждать шаг за шагом на русском языке.
+</think>
+
+Для решения задачи нужно определить, сколько яиц Дженет продает на фермерском рынке каждый день, а затем вычислить доход от продажи этих яиц.
+
+1. **Определить общее количество яиц в день**: Утки несут 16 яиц в день.
+2. **Вычесть яйца, которые она ест на завтрак**: Она ест 3 яйца в день.
+3. **Вычесть яйца, которые она использует для кексов**: Она использует 4 яйца в день.
+4. **Найти остаток яиц, которые она продает**: Остаток = 16 - 3 - 4 = 9 яиц.
+5. **Вычислить доход от продажи остатка**: 9 яиц × 2 $ = 18 $.
+
+Итак, Дженет зарабатывает на фермерском рынке $\boxed{18}$ долларов каждый день.",0.8291288614273071,0.7406383603811264,0.7342070639133453,0.7453528344631195,0.73326276242733,0.7203223556280136,1.0,0.7123082876205444,0.7739583551883698,0.8240529745817184,0.719575971364975,4x37x2560,-18.937578201293945,275.0,8.0,-11.121402740478516,3,0.25,1000,final_layer,4x37x2560,-15.688658714294434,344.0,8.0,-12.045367240905762,3,0.25,1000,final_layer,4x37x2560,-22.3750057220459,502.0,8.0,-11.54480266571045,3,0.25,1000,final_layer,1x37x2560,-11.375582695007324,10.0,10.0,-8.17388916015625,0,1.0,1000,final_layer,0.4375
+sw,0,False,32,18,Bata wa Janet hutaga mayai 16 kila siku. Huwa anakula matatu wakati wa staftahi kila asubuhi na huokea marafiki zake mafini kila siku kwa mayai manne. Huwa anauza yaliyosalia katika soko la wakulima kila siku kwa $2 kwa kila yai la bata. Huwa anatengeneza pesa ngapi katika dola kila siku katika soko la wakulima?,"<think>
+Tufikiri hatua kwa hatua kwa Kiswahili.
+</think>
+
+**Hatua 1: Kuzinga taarifa za latent**  
+- **Mayai ya bata kila siku:** 16  
+- **Hesabu ya kila yai la bata:** $2 kwa kila yai  
+- **Mafanikio ya kila siku:** 1 (kwa sababu huwa anauza yaliyosalia kila siku)  
+
+**Hatua 2: Kuzinga maelezo ya kila yai**  
+- Kila siku, bata hutaga **16 mayai**.  
+- Kila yai ya bata ina **16 yai** (kwa sababu ina 16 mayai kila siku).  
+- Kila siku, bata ina **16 × $2 = $32** kwa kila yai.  
+
+**Hatua 3: Kuzinga pesa kila siku**  
+- Kila siku, bata ina **$32** kwa kila yai.  
+- Kila siku, bata ina **$32** kwa kila siku.  
+
+**Jibu:**  
+Bata anatengeneza **$\boxed{32}$** pesa kila siku katika soko la wakulima.",0.7217029482126236,0.7570551186800003,0.6841600984334946,0.7545136660337448,0.7592723369598389,0.6753014028072357,0.7123082876205444,1.0,0.7077853828668594,0.7129741162061691,0.6795724332332611,4x37x2560,-7.141475677490234,115.0,8.0,-7.141475677490234,2,0.5,1000,final_layer,4x37x2560,-20.01401138305664,1230.0,8.0,-7.607785224914551,2,0.5,1000,final_layer,4x37x2560,-14.193790435791016,187.0,8.0,-9.384663581848145,3,0.25,1000,final_layer,1x37x2560,-0.38268986344337463,1.0,1.0,-0.38268986344337463,0,1.0,1000,final_layer,0.5625
+te,0,False,4,18,జనెత్ బాతులు ప్రతిరోజూ 16 గుడ్లు పెడతాయి. ఆమె ప్రతిరోజూ ఉదయం అల్పాహారం కొరకు మూడు గుడ్లు తింటుంది మరియు ప్రతిరోజూ నాలుగింటితో తన స్నేహితుల కొరకు మఫిన్‌లు బేక్ చేస్తుంది. ఆమె మిగిలిన వాటిని రోజూ రైతు మార్కెట్ వద్ద ప్రతి తాజా బాతు గుడ్డును $2కు విక్రయిస్తుంది. ఆమె రైతు మార్కెట్ వద్ద ప్రతిరోజూ ఎన్ని డాలర్లు సంపాదిస్తుంది?,"<think>
+తెలుగులో దశలవారీగా ఆలోచిద్దాం.
+</think>
+
+1. **సమాచారం స్వీకరించడం**  
+   - జనెత్ రోజూ 16 గుడ్లు పెడతా she.  
+   - రోజూ ఉదయం అల్పాహారం కొరకు 3 గుడ్లు తింటుంది.  
+   - రోజూ 4 ఇంటికి స్నేహితుల కొరకు మఫిన్లు బేక్ చేస్తుంది.  
+   - మిగిలిన గుడ్లను రైతు మార్కెట్ వద్ద $2 కు విక్రయిస్తుంది.  
+
+2. **సమాన్య గుడ్ల సంఖ్య లెక్కించడం**  
+   - రోజూ 16 గుడ్లు పెడతా she.  
+   - అల్పాహారం కొరకు 3 గుడ్లు తింటుంది.  
+   - స్నేహితుల కొరకు 4 ఇంటికి మఫిన్లు బేక్ చ�",0.8572251796722412,0.7651223540306091,0.7365121692419052,0.760919064283371,0.7608704417943954,0.7693421542644501,0.7739583551883698,0.7077853828668594,1.0,0.7851143479347229,0.6772862076759338,4x37x2560,-15.297470092773438,216.0,8.0,-10.723763465881348,2,0.5,1000,final_layer,4x37x2560,-25.990427017211914,9216.0,8.0,-10.877391815185547,,0.0,1000,final_layer,4x37x2560,-31.742206573486328,104077.0,8.0,-10.944685935974121,,0.0,1000,final_layer,1x37x2560,-0.168691024184227,1.0,1.0,-0.08886321634054184,0,1.0,1000,final_layer,0.375
+th,0,True,18,18,เป็ดของเจเน็ตวางไข่วันละ 16 ฟอง เธอกินไข่สามฟองเป็นมื้อเช้าทุกวัน และใช้ไข่สี่ฟองอบมัฟฟินให้เพื่อนทุกวัน เธอขายไข่ที่เหลือที่ตลาดเกษตรกรทุกวันในราคา $2 ต่อไข่เป็ดสดหนึ่งฟอง เธอจะมีรายได้จากตลาดเกษตรกรวันละกี่ดอลลาร์,"<think>
+มาคิดทีละขั้นตอนเป็นภาษาไทยกัน
+</think>
+
+<เหตุผล>
+เริ่มต้นจากข้อมูลที่ให้มา ต้องการคำนวณรายได้จากตลาดเกษตรกรของเจเน็ตวันละกี่ดอลลาร์ ขั้นตอนแรกคือการหาจำนวนไข่ที่เหลือหลังจากใช้ไปในชีวิตประจำวัน ซึ่งประกอบด้วยการใช้ไข่ในมื้อเช้าและอบมัฟฟิน
+
+<ขั้นตอนที่1>
+จำนวนไข่ทั้งหมดที่เป็ดวางในแต่ละวันคือ 16 ฟอง
+
+<ขั้นตอนที่2>
+จำนวนไข่ที่เจเน็ตใช้ในแต่ละวัน คือ 3 ฟอง (มื้อเช้า) + 4 ฟอง (อบมัฟฟิน) = 7 ฟอง
+
+<ขั้นตอนที่3>
+จำนวนไข่ที่เหลือจากวันละ 16 ฟอง หลังจากใช้ไป 7 ฟอง คือ 16 - 7 = 9 ฟอง
+
+<ขั้นตอนที่4>
+ราคาขายไข่ที่ตลาดเกษตรกรคือ $2 ต่อฟอง ดังนั้นรายได้จากไข่ที่เหลือคือ 9 ฟอง × $2 = $18
+
+<คำตอบสุดท้าย>
+\boxed{18}",0.8908844739198685,0.7481481730937958,0.7310258001089096,0.7488208115100861,0.7471051812171936,0.7711983621120453,0.8240529745817184,0.7129741162061691,0.7851143479347229,1.0,0.6910784840583801,4x37x2560,-7.717227458953857,184.0,8.0,-7.717227458953857,3,0.25,1000,final_layer,4x37x2560,-8.349623680114746,154.0,8.0,-8.349623680114746,3,0.25,1000,final_layer,4x37x2560,-10.096758842468262,1058.0,8.0,-10.096758842468262,,0.0,1000,final_layer,1x37x2560,-1.4192479848861694,1.0,1.0,-1.4192479848861694,0,1.0,1000,final_layer,0.375
+zh,0,True,18,18,珍妮特的鸭子每天下 16 颗蛋。她每天早上早餐时吃 3 颗，每天用 4 颗为自己的朋友做松饼。剩下的鸭蛋她每天拿去农贸市场卖，每颗新鲜鸭蛋卖 2 美元。她每天在农贸市场赚多少钱？,"<think>
+让我们用中文一步一步推理。
+</think>
+
+首先，计算珍妮特每天总共消耗的鸭蛋数量。她每天早餐吃3颗，做松饼用4颗，所以总共消耗 $3 + 4 = 7$ 颗鸭蛋。
+
+接下来，计算她每天剩下的鸭蛋数量。鸭子每天下16颗蛋，减去每天消耗的7颗，剩下 $16 - 7 = 9$ 颗鸭蛋。
+
+最后，计算她每天在农贸市场赚的钱。剩下的9颗鸭蛋每颗卖2美元，所以她每天赚 $9 \times 2 = 18$ 美元。
+
+\boxed{18}",0.6896099895238876,0.7420627325773239,0.7390042841434479,0.7479861974716187,0.740796372294426,0.7282946407794952,0.719575971364975,0.6795724332332611,0.6772862076759338,0.6910784840583801,1.0,4x37x2560,-8.260272026062012,7.0,7.0,-6.038208961486816,2,0.5,1000,final_layer,4x37x2560,-14.54758358001709,511.0,8.0,-8.643644332885742,1,0.75,1000,final_layer,4x37x2560,-12.833056449890137,212.0,8.0,-7.609803199768066,1,0.75,1000,final_layer,1x37x2560,-4.527606010437012,4.0,4.0,-4.527606010437012,0,1.0,1000,final_layer,0.75

@@ -44,6 +44,12 @@ def safe_corr(a: pd.Series, b: pd.Series, method: str) -> float:
         return float("nan")
     if a[mask].nunique() < 2 or b[mask].nunique() < 2:
         return float("nan")
+    if method == "spearman":
+        # Avoid pandas importing scipy.stats.spearmanr, which can fail on older
+        # system libstdc++ installs. Spearman is Pearson over ranked values.
+        a = a[mask].rank(method="average")
+        b = b[mask].rank(method="average")
+        return float(a.corr(b, method="pearson"))
     return float(a[mask].corr(b[mask], method=method))
 
 

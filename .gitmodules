@@ -1,3 +1,6 @@
 [submodule "multilingual-latent-reasoner"]
 	path = multilingual-latent-reasoner
 	url = https://github.com/cisnlp/multilingual-latent-reasoner.git
+[submodule "disentanglement"]
+	path = disentanglement
+	url = https://github.com/MuyuenLP/Language-Reasoning-Disentangle

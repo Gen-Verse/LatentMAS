@@ -34,9 +34,16 @@ def mean_hidden_by_language(payload: Dict, roles: List[str]) -> Dict[str, np.nda
 
 
 def build_aligner(rank: int, lang_emb: Dict[str, np.ndarray]) -> np.ndarray:
-    lang_mean_emb = {lang: np.mean(emb, axis=0) for lang, emb in lang_emb.items()}
+    lang_mean_emb = {}
+    for lang, emb in lang_emb.items():
+        emb = np.asarray(emb, dtype=np.float32)
+        if emb.ndim == 1:
+            lang_mean_emb[lang] = emb
+        else:
+            lang_mean_emb[lang] = np.mean(emb, axis=0)
     w = np.stack(list(lang_mean_emb.values())).T
     _, language_count = w.shape
+    rank = min(rank, language_count - 1, w.shape[0])
 
     wc = w @ np.ones(language_count) / language_count
     u, s, vh = np.linalg.svd(w - wc.reshape(-1, 1) @ np.ones((1, language_count)), full_matrices=False)

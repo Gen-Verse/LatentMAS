@@ -23,9 +23,23 @@ TOP_P="${TOP_P:-0.95}"
 SEED="${SEED:-42}"
 EMERGENCE_RANK_THRESHOLD="${EMERGENCE_RANK_THRESHOLD:-1000}"
 EMERGENCE_LAYER_STRATEGY="${EMERGENCE_LAYER_STRATEGY:-final_layer}"
+LANGUAGE_REASONING_DISENTANGLE="${LANGUAGE_REASONING_DISENTANGLE:-0}"
+LR_VECTOR_PATH="${LR_VECTOR_PATH:-}"
+LR_DISENTANGLE_STRENGTH="${LR_DISENTANGLE_STRENGTH:-0.2}"
+LR_DISENTANGLE_VECTOR_LAYER="${LR_DISENTANGLE_VECTOR_LAYER:--1}"
+LR_DISENTANGLE_ROLES="${LR_DISENTANGLE_ROLES:-planner,critic,refiner}"
 CHECKPOINT_EVERY="${CHECKPOINT_EVERY:-1}"
 RUN_NAME="${RUN_NAME:-mgsm_all_${PROMPT}_csv}"
 OUT_DIR="${OUT_DIR:-src/multilingual-latent-reasoning/results_latent_mas_agents}"
+
+EXTRA_ARGS=()
+if [[ "${LANGUAGE_REASONING_DISENTANGLE}" == "1" || "${LANGUAGE_REASONING_DISENTANGLE}" == "true" ]]; then
+  EXTRA_ARGS+=(--language_reasoning_disentangle)
+  EXTRA_ARGS+=(--lr_vector_path "${LR_VECTOR_PATH}")
+  EXTRA_ARGS+=(--lr_disentangle_strength "${LR_DISENTANGLE_STRENGTH}")
+  EXTRA_ARGS+=(--lr_disentangle_vector_layer "${LR_DISENTANGLE_VECTOR_LAYER}")
+  EXTRA_ARGS+=(--lr_disentangle_roles "${LR_DISENTANGLE_ROLES}")
+fi
 
 echo "================ Full MGSM LatentMAS CSV run ================"
 echo "  model      : ${MODEL_NAME}"
@@ -37,6 +51,12 @@ echo "  max tokens : ${MAX_NEW_TOKENS}"
 echo "  run_name   : ${RUN_NAME}"
 echo "  out_dir    : ${OUT_DIR}"
 echo "  checkpoint : every ${CHECKPOINT_EVERY} example(s)"
+echo "  LR disent. : ${LANGUAGE_REASONING_DISENTANGLE}"
+if [[ "${LANGUAGE_REASONING_DISENTANGLE}" == "1" || "${LANGUAGE_REASONING_DISENTANGLE}" == "true" ]]; then
+  echo "  LR vector  : ${LR_VECTOR_PATH}"
+  echo "  LR strength: ${LR_DISENTANGLE_STRENGTH}"
+  echo "  LR roles   : ${LR_DISENTANGLE_ROLES}"
+fi
 echo "============================================================="
 
 python src/multilingual-latent-reasoning/run_latent_mas_mgsm_batch_analysis.py \
@@ -55,4 +75,5 @@ python src/multilingual-latent-reasoning/run_latent_mas_mgsm_batch_analysis.py \
   --emergence_layer_strategy "${EMERGENCE_LAYER_STRATEGY}" \
   --checkpoint_every "${CHECKPOINT_EVERY}" \
   --out_dir "${OUT_DIR}" \
-  --run_name "${RUN_NAME}"
+  --run_name "${RUN_NAME}" \
+  "${EXTRA_ARGS[@]}"

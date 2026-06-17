@@ -116,6 +116,35 @@ def main():
     parser.add_argument("--text_mas_context_length", type=int, default=-1, help="TextMAS context length limit")
     parser.add_argument("--think", action="store_true", help="Manually add think token in the prompt for LatentMAS")
     parser.add_argument("--latent_space_realign", action="store_true")
+    parser.add_argument(
+        "--language_reasoning_disentangle",
+        action="store_true",
+        help="Project LatentMAS communication vectors away from a learned multilingual language subspace.",
+    )
+    parser.add_argument(
+        "--lr_vector_path",
+        type=str,
+        default=None,
+        help="Path to a [layers, rank, hidden_dim] language-reasoning subspace vector built for this model.",
+    )
+    parser.add_argument(
+        "--lr_disentangle_strength",
+        type=float,
+        default=0.2,
+        help="Projection-removal strength for language-reasoning disentanglement. 0 disables effect.",
+    )
+    parser.add_argument(
+        "--lr_disentangle_vector_layer",
+        type=int,
+        default=-1,
+        help="Which vector layer to use for direct latent-vector steering; -1 uses the final vector layer.",
+    )
+    parser.add_argument(
+        "--lr_disentangle_roles",
+        type=str,
+        default="planner,critic,refiner",
+        help="Comma-separated LatentMAS roles to steer. Default avoids steering the judger.",
+    )
     parser.add_argument("--seed", type=int, default=42)
 
     # vLLM support

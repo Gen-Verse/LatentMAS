@@ -125,6 +125,7 @@ class LatentMASMethod:
         final_texts = ["" for _ in range(batch_size)]
 
         for agent in self.agents:
+            self.model.set_current_agent_role(agent.role)
 
             if self.args.prompt == "sequential":
                 batch_messages = [
@@ -289,6 +290,7 @@ class LatentMASMethod:
                     "correct": ok,
                 }
             )
+        self.model.set_current_agent_role(None)
         return results
     
     def run_batch_vllm(self, items: List[Dict]) -> List[Dict]:
@@ -302,6 +304,7 @@ class LatentMASMethod:
 
         embedding_record = []
         for agent in self.agents:
+            self.model.set_current_agent_role(agent.role)
             
             if self.args.prompt == "sequential":
                 batch_messages = [
@@ -485,6 +488,7 @@ class LatentMASMethod:
                     "correct": ok,
                 }
             )
+        self.model.set_current_agent_role(None)
         return results
 
     def run_item(self, item: Dict) -> Dict:

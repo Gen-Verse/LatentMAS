@@ -120,6 +120,10 @@ class ModelWrapper:
         self.HF_device = None
         self.latent_space_realign = bool(getattr(args, "latent_space_realign", False)) if args else False
         self._latent_realign_matrices: Dict[int, Tuple[torch.Tensor, torch.Tensor]] = {}
+        self.language_reasoning_disentangle = bool(getattr(args, "language_reasoning_disentangle", False)) if args else False
+        self._lr_vector = None
+        self._lr_vector_path = getattr(args, "lr_vector_path", None) if args else None
+        self._lr_current_agent_role = None
         self.args = args
 
         # for ablation
@@ -222,6 +226,9 @@ class ModelWrapper:
             self.model.config.use_cache = True
         if self.latent_space_realign:
             self._ensure_latent_realign_matrix(self.model, self.device, args)
+
+    def set_current_agent_role(self, role: Optional[str]) -> None:
+        self._lr_current_agent_role = role
 
     def render_chat(self, messages: List[Dict], add_generation_prompt: bool = True) -> str:
         tpl = getattr(self.tokenizer, "chat_template", None)
@@ -374,6 +381,62 @@ class ModelWrapper:
         self.pre_aligned = pre_aligned
         aligned = aligned * (target_norm / aligned_norm)
         return aligned.to(hidden.dtype)
+
+    def _load_language_reasoning_vector(self, device: torch.device) -> torch.Tensor:
+        if not self._lr_vector_path:
+            raise ValueError("--language_reasoning_disentangle requires --lr_vector_path.")
+        if self._lr_vector is None:
+            vector = torch.load(self._lr_vector_path, map_location="cpu")
+            if isinstance(vector, dict):
+                vector = vector.get("vector")
+            if not torch.is_tensor(vector):
+                raise ValueError(f"Language-reasoning vector at {self._lr_vector_path} is not a tensor.")
+            if vector.dim() != 3:
+                raise ValueError(
+                    "Language-reasoning vector must have shape [layers, rank, hidden_dim]. "
+                    f"Got {tuple(vector.shape)}."
+                )
+            self._lr_vector = vector.detach().to(torch.float32)
+        return self._lr_vector.to(device=device, dtype=torch.float32)
+
+    def _language_reasoning_roles(self) -> set:
+        roles = getattr(self.args, "lr_disentangle_roles", "planner,critic,refiner")
+        return {x.strip().lower() for x in roles.split(",") if x.strip()}
+
+    def _should_apply_language_reasoning_disentangle(self) -> bool:
+        if not self.language_reasoning_disentangle:
+            return False
+        role = (self._lr_current_agent_role or "").lower()
+        return role in self._language_reasoning_roles()
+
+    def _apply_language_reasoning_disentangle(self, hidden: torch.Tensor) -> torch.Tensor:
+        if not self._should_apply_language_reasoning_disentangle():
+            return hidden
+
+        vector = self._load_language_reasoning_vector(hidden.device)
+        if vector.shape[-1] != hidden.shape[-1]:
+            raise ValueError(
+                "Language-reasoning vector hidden dimension does not match model hidden dimension. "
+                f"Vector has {vector.shape[-1]}, hidden has {hidden.shape[-1]}. "
+                "Build a vector for this exact model/traces before enabling disentanglement."
+            )
+
+        layer_idx = int(getattr(self.args, "lr_disentangle_vector_layer", -1))
+        layer_idx = layer_idx if layer_idx >= 0 else vector.shape[0] + layer_idx
+        if layer_idx < 0 or layer_idx >= vector.shape[0]:
+            raise ValueError(f"--lr_disentangle_vector_layer {layer_idx} is out of range for vector with {vector.shape[0]} layers.")
+
+        dirs = vector[layer_idx]
+        dirs = dirs / dirs.norm(dim=1, keepdim=True).clamp_min(1e-6)
+        hidden_fp32 = hidden.to(torch.float32)
+        projection = torch.matmul(torch.matmul(hidden_fp32, dirs.T), dirs)
+        strength = float(getattr(self.args, "lr_disentangle_strength", 0.2))
+        steered = hidden_fp32 - strength * projection
+        return steered.to(hidden.dtype)
+
+    def _prepare_latent_vec(self, hidden: torch.Tensor, model: torch.nn.Module) -> torch.Tensor:
+        latent_vec = self._apply_latent_realignment(hidden, model)
+        return self._apply_language_reasoning_disentangle(latent_vec)
 
     @torch.no_grad()
     def generate_text_batch(
@@ -546,7 +609,7 @@ class ModelWrapper:
         for step in range(latent_steps):
 
             source_model = self.HF_model if hasattr(self, "HF_model") else self.model
-            latent_vec = self._apply_latent_realignment(last_hidden, source_model)
+            latent_vec = self._prepare_latent_vec(last_hidden, source_model)
 
             latent_vecs_all.append(latent_vec.detach().clone())
 
@@ -617,7 +680,7 @@ class ModelWrapper:
 
         for _ in range(latent_steps):
             source_model = self.HF_model if hasattr(self, "HF_model") else self.model
-            latent_vec = self._apply_latent_realignment(last_hidden, source_model)
+            latent_vec = self._prepare_latent_vec(last_hidden, source_model)
             latent_embed = latent_vec.unsqueeze(1)
             past_len = _past_length(past)
             latent_mask = torch.ones(
@@ -681,7 +744,7 @@ class ModelWrapper:
         for _ in range(latent_steps):
 
             source_model = self.HF_model if hasattr(self, "HF_model") else self.model
-            latent_vec = self._apply_latent_realignment(last_hidden, source_model)
+            latent_vec = self._prepare_latent_vec(last_hidden, source_model)
             latent_embed = latent_vec.unsqueeze(1)
             past_len = _past_length(past)
             latent_mask = torch.ones(

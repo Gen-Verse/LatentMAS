@@ -66,6 +66,11 @@ def build_args(args: argparse.Namespace, lang: str) -> SimpleNamespace:
         text_mas_context_length=-1,
         think=False,
         latent_space_realign=args.latent_space_realign,
+        language_reasoning_disentangle=args.language_reasoning_disentangle,
+        lr_vector_path=args.lr_vector_path,
+        lr_disentangle_strength=args.lr_disentangle_strength,
+        lr_disentangle_vector_layer=args.lr_disentangle_vector_layer,
+        lr_disentangle_roles=args.lr_disentangle_roles,
         use_vllm=False,
         enable_prefix_caching=False,
         use_second_HF_model=False,
@@ -111,6 +116,7 @@ def run_one_example(model: ModelWrapper, args: argparse.Namespace, lang: str, it
     final_text = ""
 
     for agent in default_agents():
+        model.set_current_agent_role(agent.role)
         messages = build_messages(args, method_args, agent.role, item["question"])
         prompt = model.render_chat(messages, add_generation_prompt=True)
 
@@ -155,6 +161,7 @@ def run_one_example(model: ModelWrapper, args: argparse.Namespace, lang: str, it
         }
         if agent.role == "judger":
             agents_out[agent.role]["output"] = final_text
+    model.set_current_agent_role(None)
 
     pred = normalize_answer(extract_gsm8k_answer(final_text))
     gold = normalize_answer(item["gold"])
@@ -541,6 +548,11 @@ def main():
     parser.add_argument("--temperature", type=float, default=0.6)
     parser.add_argument("--top_p", type=float, default=0.95)
     parser.add_argument("--latent_space_realign", action="store_true")
+    parser.add_argument("--language_reasoning_disentangle", action="store_true")
+    parser.add_argument("--lr_vector_path", type=str, default=None)
+    parser.add_argument("--lr_disentangle_strength", type=float, default=0.2)
+    parser.add_argument("--lr_disentangle_vector_layer", type=int, default=-1)
+    parser.add_argument("--lr_disentangle_roles", type=str, default="planner,critic,refiner")
     parser.add_argument("--emergence_rank_threshold", type=int, default=1000)
     parser.add_argument(
         "--emergence_layer_strategy",
@@ -573,6 +585,11 @@ def main():
         "max_examples": args.max_examples,
         "emergence_rank_threshold": args.emergence_rank_threshold,
         "emergence_layer_strategy": args.emergence_layer_strategy,
+        "language_reasoning_disentangle": args.language_reasoning_disentangle,
+        "lr_vector_path": args.lr_vector_path,
+        "lr_disentangle_strength": args.lr_disentangle_strength,
+        "lr_disentangle_vector_layer": args.lr_disentangle_vector_layer,
+        "lr_disentangle_roles": args.lr_disentangle_roles,
         "cosine_definition": "Average across common example indices, agents, latent steps, and layers.",
         "checkpoint_every": args.checkpoint_every,
     }

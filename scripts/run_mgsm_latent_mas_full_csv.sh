@@ -15,6 +15,7 @@ MODEL_NAME="${MODEL_NAME:-Qwen/Qwen3-4B}"
 LANGUAGES="${LANGUAGES:-bn,de,en,es,fr,ja,ru,sw,te,th,zh}"
 PROMPT="${PROMPT:-sequential}"
 LATENT_STEPS="${LATENT_STEPS:-3}"
+MAX_EXAMPLES="${MAX_EXAMPLES:--1}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-512}"
 DEVICE="${DEVICE:-auto}"
 DEVICE2="${DEVICE2:-cuda:1}"
@@ -47,6 +48,7 @@ echo "  languages  : ${LANGUAGES}"
 echo "  prompt     : ${PROMPT}"
 echo "  device     : ${DEVICE}"
 echo "  latent     : ${LATENT_STEPS}"
+echo "  max examples: ${MAX_EXAMPLES}"
 echo "  max tokens : ${MAX_NEW_TOKENS}"
 echo "  run_name   : ${RUN_NAME}"
 echo "  out_dir    : ${OUT_DIR}"
@@ -64,7 +66,7 @@ python src/multilingual-latent-reasoning/run_latent_mas_mgsm_batch_analysis.py \
   --languages "${LANGUAGES}" \
   --prompt "${PROMPT}" \
   --latent_steps "${LATENT_STEPS}" \
-  --max_examples -1 \
+  --max_examples "${MAX_EXAMPLES}" \
   --device "${DEVICE}" \
   --device2 "${DEVICE2}" \
   --max_new_tokens "${MAX_NEW_TOKENS}" \

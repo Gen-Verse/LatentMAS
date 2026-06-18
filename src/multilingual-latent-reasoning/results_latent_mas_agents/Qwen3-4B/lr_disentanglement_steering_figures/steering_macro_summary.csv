@@ -1,0 +1,5 @@
+run,strength,status,macro_accuracy,micro_accuracy,total
+mgsm_first50_latent_mas_baseline,0.0,final,0.629090909090909,0.6290909090909091,550
+mgsm_first50_latent_mas_lr_disentangle_s0.025,0.025,final,0.6127272727272728,0.6127272727272727,550
+mgsm_first50_latent_mas_lr_disentangle_s0.05,0.05,final,0.6272727272727273,0.6272727272727273,550
+mgsm_first50_latent_mas_lr_disentangle_s0.1,0.1,partial,0.5711111111111111,0.6408977556109726,401

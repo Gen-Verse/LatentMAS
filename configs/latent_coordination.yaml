@@ -1,0 +1,136 @@
+project:
+  name: latent_coordination
+  version: 0.2.0
+  description: Decentralized multi-agent reasoning with CVAE topology priors and latent
+    state transfer
+  output_dir: results/coordination
+  seed: 42
+agents:
+- id: orchestrator
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: orchestrator
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 128
+- id: translation_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: translation
+  device: cuda:1
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 256
+- id: reasoning_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: reasoning
+  device: cuda:2
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 512
+- id: safety_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: safety
+  device: cuda:3
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 128
+universal_latent_space:
+  universal_dim: 2048
+  adapter_hidden_dim: 1024
+  adapter_dropout: 0.1
+  adapter_training:
+    n_epochs: 50
+    lr: 0.001
+    batch_size: 32
+cvae:
+  query_dim: 64
+  graph_dim: 9
+  latent_dim: 32
+  encoder_hidden:
+  - 128
+  - 64
+  decoder_hidden:
+  - 64
+  - 128
+  training:
+    n_epochs: 100
+    lr: 0.001
+    beta_max: 4.0
+    warmup_epochs: 10
+    batch_size: 64
+  checkpoint_path: .cache/checkpoints/coordination/cvae
+orchestration:
+  n_intent_centroids: 8
+  routing_strategy: latent_centroid
+  parallel_agents: true
+  max_parallel_workers: 4
+  timeout_per_agent_s: 60
+communication:
+  modes:
+  - token
+  - latent
+  - hybrid
+  track_all: true
+  latent_transfer_layer: -4
+  # Benchmark evaluation modes actually executed in Stage E (subset selectable via
+  # --comm-modes). single_agent_baseline + token_based_mas are token-only (vLLM-eligible);
+  # latent_based_mas_ours requires the HF backend (hidden-state transfer).
+  eval_modes:
+  - single_agent_baseline
+  - token_based_mas
+  - latent_based_mas_ours
+  # Backend for token-only modes: auto | hf | vllm. vLLM auto-activates only on Ampere+
+  # (cc>=8.0); on V100/sm_70 it transparently falls back to HF.
+  backend: auto
+benchmarks:
+  sea_vision:
+    enabled: true
+    n_samples_per_language: 200
+    local_dir: null
+  sea_safeguardbench:
+    enabled: true
+    n_samples: 200
+ablation:
+  communication_modes:
+  - token_based
+  - latent_based
+  - hybrid
+  n_agents_sweep:
+  - 2
+  - 4
+  - 8
+  - 16
+  topology_types:
+  - hub_spoke
+  - fully_connected
+  - ring
+visualization:
+  save_formats:
+  - png
+  - pdf
+  dpi: 300
+  style: seaborn-v0_8-whitegrid
+  plots:
+  - agent_topology
+  - cvae_latent_space
+  - topology_evolution
+  - transfer_matrix
+  - token_vs_latent_cost
+  - accuracy_vs_latency
+  - scalability
+  - universal_space_embeddings
+  - transfer_trajectory
+  - intent_centroids
+  - communication_timeline
+checkpointing:
+  enabled: true
+  interval_stages: 1
+  keep_last_n: 5
+  checkpoint_dir: .cache/checkpoints/coordination
+logging:
+  level: INFO
+  log_dir: logs/coordination
+  json_logs: true
+parallelism:
+  n_workers: 4
+  use_asyncio: true

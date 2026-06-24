@@ -454,7 +454,7 @@ class ModelWrapper:
             raise ValueError("input_ids must be 2D with shape [batch, seq_len]")
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids, device=self.device)
-        prompt_lengths = attention_mask.sum(dim=1).tolist()
+        prompt_length = input_ids.shape[-1]
         cache_position = None
         if past_key_values is not None:
             past_len = _past_length(past_key_values)
@@ -492,9 +492,8 @@ class ModelWrapper:
         outputs = self.model.generate(**gen_kwargs)
         sequences = outputs.sequences
         generations: List[str] = []
-        for idx, length in enumerate(prompt_lengths):
-            length = int(length)
-            generated_ids = sequences[idx, length:]
+        for idx in range(sequences.shape[0]):
+            generated_ids = sequences[idx, prompt_length:]
             text = self.tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
             generations.append(text)
         return generations, outputs.past_key_values

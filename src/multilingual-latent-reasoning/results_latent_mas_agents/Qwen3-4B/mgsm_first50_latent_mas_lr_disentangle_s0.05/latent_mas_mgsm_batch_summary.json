@@ -1,0 +1,3644 @@
+{
+  "meta": {
+    "model": "Qwen/Qwen3-4B",
+    "languages": [
+      "bn",
+      "de",
+      "en",
+      "es",
+      "fr",
+      "ja",
+      "ru",
+      "sw",
+      "te",
+      "th",
+      "zh"
+    ],
+    "prompt": "sequential",
+    "latent_steps": 3,
+    "max_examples": 50,
+    "emergence_rank_threshold": 1000,
+    "emergence_layer_strategy": "final_layer",
+    "language_reasoning_disentangle": true,
+    "lr_vector_path": "src/multilingual-latent-reasoning/results_latent_mas_agents/Qwen3-4B/language_reasoning_vectors/qwen3_4b_mgsm_latent_pcr.pt",
+    "lr_disentangle_strength": 0.05,
+    "lr_disentangle_vector_layer": -1,
+    "lr_disentangle_roles": "planner,critic,refiner",
+    "cosine_definition": "Average across common example indices, agents, latent steps, and layers.",
+    "checkpoint_every": 10
+  },
+  "languages": [
+    "bn",
+    "de",
+    "en",
+    "es",
+    "fr",
+    "ja",
+    "ru",
+    "sw",
+    "te",
+    "th",
+    "zh"
+  ],
+  "language_summary": {
+    "bn": {
+      "accuracy": 0.46,
+      "correct": 23,
+      "total": 50,
+      "latent_reasoning_score": 0.3325,
+      "agent_latent_reasoning_score": {
+        "planner": 0.3,
+        "critic": 0.03,
+        "refiner": 0.0,
+        "judger": 1.0
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": false,
+          "prediction": "5",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "12",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": false,
+          "prediction": "180",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": false,
+          "prediction": "25",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "8",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": false,
+          "prediction": "4",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "120",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "2",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": false,
+          "prediction": "6",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "7.5",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": "3",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": false,
+          "prediction": "5",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": false,
+          "prediction": "80",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": false,
+          "prediction": "500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": false,
+          "prediction": "4",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "2",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": false,
+          "prediction": "8.50",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": false,
+          "prediction": "15",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": false,
+          "prediction": "100",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": false,
+          "prediction": "40",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "0",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": false,
+          "prediction": "3",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": false,
+          "prediction": "3",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": false,
+          "prediction": "400",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": false,
+          "prediction": "4",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": false,
+          "prediction": "220",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": false,
+          "prediction": "4",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "de": {
+      "accuracy": 0.9,
+      "correct": 45,
+      "total": 50,
+      "latent_reasoning_score": 0.46875,
+      "agent_latent_reasoning_score": {
+        "planner": 0.485,
+        "critic": 0.34,
+        "refiner": 0.31,
+        "judger": 0.74
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": true,
+          "prediction": "70000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "50",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": true,
+          "prediction": "260",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": true,
+          "prediction": "160",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "5",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": false,
+          "prediction": "11",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "12",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": true,
+          "prediction": "57500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": true,
+          "prediction": "14",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "0",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": true,
+          "prediction": "200",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": true,
+          "prediction": "163",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": true,
+          "prediction": "800",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "en": {
+      "accuracy": 0.92,
+      "correct": 46,
+      "total": 50,
+      "latent_reasoning_score": 0.39375,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.525,
+        "refiner": 0.27,
+        "judger": 0.28
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": true,
+          "prediction": "70000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": true,
+          "prediction": "64",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": true,
+          "prediction": "260",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": true,
+          "prediction": "160",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": true,
+          "prediction": "45",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "12",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": "36",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": true,
+          "prediction": "57500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": true,
+          "prediction": "14",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": false,
+          "prediction": "75.00",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "0",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": true,
+          "prediction": "200",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": true,
+          "prediction": "163",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": true,
+          "prediction": "800",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "es": {
+      "accuracy": 0.92,
+      "correct": 46,
+      "total": 50,
+      "latent_reasoning_score": 0.49874999999999997,
+      "agent_latent_reasoning_score": {
+        "planner": 0.45,
+        "critic": 0.25,
+        "refiner": 0.315,
+        "judger": 0.98
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": true,
+          "prediction": "70000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": true,
+          "prediction": "64",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": true,
+          "prediction": "260",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "120",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": true,
+          "prediction": "45",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "12",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": true,
+          "prediction": "57500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": true,
+          "prediction": "14",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "11",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": false,
+          "prediction": "6",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": true,
+          "prediction": "163",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": true,
+          "prediction": "800",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "fr": {
+      "accuracy": 0.44,
+      "correct": 22,
+      "total": 50,
+      "latent_reasoning_score": 0.49,
+      "agent_latent_reasoning_score": {
+        "planner": 0.48,
+        "critic": 0.31,
+        "refiner": 0.35,
+        "judger": 0.82
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "130000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "68",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": false,
+          "prediction": "180",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "220",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "120",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": false,
+          "prediction": "252",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": false,
+          "prediction": "434",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "6",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": "30",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": false,
+          "prediction": "55",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": false,
+          "prediction": "29500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": false,
+          "prediction": "17",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "7",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": false,
+          "prediction": "10",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": false,
+          "prediction": "3",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": false,
+          "prediction": "3",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": false,
+          "prediction": "your_final_answer",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": false,
+          "prediction": "5",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": false,
+          "prediction": "33",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": false,
+          "prediction": "5",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": false,
+          "prediction": "37",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "0",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": false,
+          "prediction": "4",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": false,
+          "prediction": "4",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": false,
+          "prediction": "800",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": false,
+          "prediction": "150",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": false,
+          "prediction": "23",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": true,
+          "prediction": "800",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": false,
+          "prediction": "45",
+          "gold": "30"
+        }
+      ]
+    },
+    "ja": {
+      "accuracy": 0.7,
+      "correct": 35,
+      "total": 50,
+      "latent_reasoning_score": 0.535,
+      "agent_latent_reasoning_score": {
+        "planner": 0.5,
+        "critic": 0.43,
+        "refiner": 0.31,
+        "judger": 0.9
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "-10000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": false,
+          "prediction": "0",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "50",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": true,
+          "prediction": "260",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "120",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "135",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "12",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": "8",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": false,
+          "prediction": "8096",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": true,
+          "prediction": "57500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": false,
+          "prediction": "84",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": true,
+          "prediction": "14",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": false,
+          "prediction": "26.00",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": false,
+          "prediction": "43",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "30",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": false,
+          "prediction": "28.97",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": true,
+          "prediction": "200",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": false,
+          "prediction": "20.00",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": false,
+          "prediction": "52",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": true,
+          "prediction": "163",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": true,
+          "prediction": "800",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "ru": {
+      "accuracy": 0.8,
+      "correct": 40,
+      "total": 50,
+      "latent_reasoning_score": 0.33125,
+      "agent_latent_reasoning_score": {
+        "planner": 0.535,
+        "critic": 0.28,
+        "refiner": 0.09,
+        "judger": 0.42
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "130000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": true,
+          "prediction": "64",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": false,
+          "prediction": "120",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "100",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": true,
+          "prediction": "45",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "6",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": true,
+          "prediction": "57500",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "23",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": false,
+          "prediction": "16.00",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "5",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": false,
+          "prediction": "600",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": false,
+          "prediction": "44",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": true,
+          "prediction": "163",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": false,
+          "prediction": "400",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "sw": {
+      "accuracy": 0.14,
+      "correct": 7,
+      "total": 50,
+      "latent_reasoning_score": 0.50625,
+      "agent_latent_reasoning_score": {
+        "planner": 0.45,
+        "critic": 0.36,
+        "refiner": 0.275,
+        "judger": 0.94
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": false,
+          "prediction": "32",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": false,
+          "prediction": "5",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "40000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": false,
+          "prediction": "2",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "128",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": false,
+          "prediction": "1",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "120",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "500",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": false,
+          "prediction": "6",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": false,
+          "prediction": "450",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "7",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": null,
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": false,
+          "prediction": "11",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": false,
+          "prediction": "4",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": false,
+          "prediction": "20",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": false,
+          "prediction": "36",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": false,
+          "prediction": "4",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": false,
+          "prediction": "67",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "2",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": false,
+          "prediction": "16",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": false,
+          "prediction": "26.00",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": false,
+          "prediction": "3600",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": false,
+          "prediction": "5",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": false,
+          "prediction": "3",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": false,
+          "prediction": "89",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": false,
+          "prediction": "108.33",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": false,
+          "prediction": "5",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": false,
+          "prediction": "30",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": false,
+          "prediction": "47",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": false,
+          "prediction": "37.50",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "13",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": false,
+          "prediction": "20",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": false,
+          "prediction": "5",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": false,
+          "prediction": "4",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": false,
+          "prediction": "1",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": false,
+          "prediction": "8",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": false,
+          "prediction": "0.0133",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": false,
+          "prediction": "2",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": false,
+          "prediction": "52",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": false,
+          "prediction": "23",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": false,
+          "prediction": "420",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": false,
+          "prediction": "5",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": false,
+          "prediction": "90",
+          "gold": "30"
+        }
+      ]
+    },
+    "te": {
+      "accuracy": 0.18,
+      "correct": 9,
+      "total": 50,
+      "latent_reasoning_score": 0.3825,
+      "agent_latent_reasoning_score": {
+        "planner": 0.45,
+        "critic": 0.025,
+        "refiner": 0.075,
+        "judger": 0.98
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": false,
+          "prediction": "3",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "150",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": false,
+          "prediction": "60",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "16",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": false,
+          "prediction": "3",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "40",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "4",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": false,
+          "prediction": "4",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": false,
+          "prediction": "1",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "3",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": "2",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": false,
+          "prediction": "16",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": false,
+          "prediction": "1.2",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": false,
+          "prediction": "2",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": false,
+          "prediction": "30",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": false,
+          "prediction": "4",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": false,
+          "prediction": "3",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "2",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": false,
+          "prediction": "3",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": false,
+          "prediction": "3",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": false,
+          "prediction": "3",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": false,
+          "prediction": "6",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": false,
+          "prediction": "16.00",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": false,
+          "prediction": "2",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": false,
+          "prediction": "94",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": false,
+          "prediction": "11",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": false,
+          "prediction": "25",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": false,
+          "prediction": "5",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": false,
+          "prediction": "3",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": false,
+          "prediction": "20",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "4",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": false,
+          "prediction": "3",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": false,
+          "prediction": "1",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": false,
+          "prediction": "2",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": false,
+          "prediction": "4",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": false,
+          "prediction": "4",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": false,
+          "prediction": "7",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": false,
+          "prediction": "4",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": false,
+          "prediction": "50",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": false,
+          "prediction": "4",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": false,
+          "prediction": "1",
+          "gold": "30"
+        }
+      ]
+    },
+    "th": {
+      "accuracy": 0.68,
+      "correct": 34,
+      "total": 50,
+      "latent_reasoning_score": 0.395,
+      "agent_latent_reasoning_score": {
+        "planner": 0.28,
+        "critic": 0.27,
+        "refiner": 0.17,
+        "judger": 0.86
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": true,
+          "prediction": "70000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": false,
+          "prediction": "1260",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": false,
+          "prediction": "50",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": true,
+          "prediction": "260",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": true,
+          "prediction": "160",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": false,
+          "prediction": "30",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": true,
+          "prediction": "366",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "12",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": false,
+          "prediction": "3",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": false,
+          "prediction": "4",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": false,
+          "prediction": "your_final_answer",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": false,
+          "prediction": "5",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "23",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": true,
+          "prediction": "16",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": false,
+          "prediction": "5",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "0",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": false,
+          "prediction": "24",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": false,
+          "prediction": "4",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": true,
+          "prediction": "200",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": false,
+          "prediction": "4",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": false,
+          "prediction": "-56",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": false,
+          "prediction": "600",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    },
+    "zh": {
+      "accuracy": 0.76,
+      "correct": 38,
+      "total": 50,
+      "latent_reasoning_score": 0.43875,
+      "agent_latent_reasoning_score": {
+        "planner": 0.505,
+        "critic": 0.25,
+        "refiner": 0.16,
+        "judger": 0.84
+      },
+      "per_problem": [
+        {
+          "idx": 0,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 1,
+          "correct": true,
+          "prediction": "3",
+          "gold": "3"
+        },
+        {
+          "idx": 2,
+          "correct": false,
+          "prediction": "000",
+          "gold": "70000"
+        },
+        {
+          "idx": 3,
+          "correct": true,
+          "prediction": "540",
+          "gold": "540"
+        },
+        {
+          "idx": 4,
+          "correct": true,
+          "prediction": "20",
+          "gold": "20"
+        },
+        {
+          "idx": 5,
+          "correct": true,
+          "prediction": "64",
+          "gold": "64"
+        },
+        {
+          "idx": 6,
+          "correct": true,
+          "prediction": "260",
+          "gold": "260"
+        },
+        {
+          "idx": 7,
+          "correct": false,
+          "prediction": "120",
+          "gold": "160"
+        },
+        {
+          "idx": 8,
+          "correct": true,
+          "prediction": "45",
+          "gold": "45"
+        },
+        {
+          "idx": 9,
+          "correct": true,
+          "prediction": "460",
+          "gold": "460"
+        },
+        {
+          "idx": 10,
+          "correct": false,
+          "prediction": "282",
+          "gold": "366"
+        },
+        {
+          "idx": 11,
+          "correct": true,
+          "prediction": "694",
+          "gold": "694"
+        },
+        {
+          "idx": 12,
+          "correct": false,
+          "prediction": "12",
+          "gold": "13"
+        },
+        {
+          "idx": 13,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 14,
+          "correct": true,
+          "prediction": "60",
+          "gold": "60"
+        },
+        {
+          "idx": 15,
+          "correct": true,
+          "prediction": "125",
+          "gold": "125"
+        },
+        {
+          "idx": 16,
+          "correct": true,
+          "prediction": "230",
+          "gold": "230"
+        },
+        {
+          "idx": 17,
+          "correct": false,
+          "prediction": "your_final_answer",
+          "gold": "57500"
+        },
+        {
+          "idx": 18,
+          "correct": false,
+          "prediction": "1.75",
+          "gold": "7"
+        },
+        {
+          "idx": 19,
+          "correct": true,
+          "prediction": "6",
+          "gold": "6"
+        },
+        {
+          "idx": 20,
+          "correct": true,
+          "prediction": "15",
+          "gold": "15"
+        },
+        {
+          "idx": 21,
+          "correct": false,
+          "prediction": "23",
+          "gold": "14"
+        },
+        {
+          "idx": 22,
+          "correct": true,
+          "prediction": "7",
+          "gold": "7"
+        },
+        {
+          "idx": 23,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 24,
+          "correct": true,
+          "prediction": "26",
+          "gold": "26"
+        },
+        {
+          "idx": 25,
+          "correct": true,
+          "prediction": "2",
+          "gold": "2"
+        },
+        {
+          "idx": 26,
+          "correct": true,
+          "prediction": "243",
+          "gold": "243"
+        },
+        {
+          "idx": 27,
+          "correct": false,
+          "prediction": "16.00",
+          "gold": "16"
+        },
+        {
+          "idx": 28,
+          "correct": true,
+          "prediction": "25",
+          "gold": "25"
+        },
+        {
+          "idx": 29,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 30,
+          "correct": true,
+          "prediction": "109",
+          "gold": "109"
+        },
+        {
+          "idx": 31,
+          "correct": true,
+          "prediction": "80",
+          "gold": "80"
+        },
+        {
+          "idx": 32,
+          "correct": true,
+          "prediction": "35",
+          "gold": "35"
+        },
+        {
+          "idx": 33,
+          "correct": true,
+          "prediction": "70",
+          "gold": "70"
+        },
+        {
+          "idx": 34,
+          "correct": true,
+          "prediction": "23",
+          "gold": "23"
+        },
+        {
+          "idx": 35,
+          "correct": true,
+          "prediction": "9",
+          "gold": "9"
+        },
+        {
+          "idx": 36,
+          "correct": true,
+          "prediction": "75",
+          "gold": "75"
+        },
+        {
+          "idx": 37,
+          "correct": false,
+          "prediction": "0",
+          "gold": "2"
+        },
+        {
+          "idx": 38,
+          "correct": true,
+          "prediction": "10",
+          "gold": "10"
+        },
+        {
+          "idx": 39,
+          "correct": true,
+          "prediction": "18",
+          "gold": "18"
+        },
+        {
+          "idx": 40,
+          "correct": false,
+          "prediction": "12",
+          "gold": "8"
+        },
+        {
+          "idx": 41,
+          "correct": true,
+          "prediction": "200",
+          "gold": "200"
+        },
+        {
+          "idx": 42,
+          "correct": false,
+          "prediction": "3",
+          "gold": "26"
+        },
+        {
+          "idx": 43,
+          "correct": true,
+          "prediction": "48",
+          "gold": "48"
+        },
+        {
+          "idx": 44,
+          "correct": false,
+          "prediction": "20.00",
+          "gold": "20"
+        },
+        {
+          "idx": 45,
+          "correct": true,
+          "prediction": "104",
+          "gold": "104"
+        },
+        {
+          "idx": 46,
+          "correct": true,
+          "prediction": "163",
+          "gold": "163"
+        },
+        {
+          "idx": 47,
+          "correct": true,
+          "prediction": "800",
+          "gold": "800"
+        },
+        {
+          "idx": 48,
+          "correct": true,
+          "prediction": "8",
+          "gold": "8"
+        },
+        {
+          "idx": 49,
+          "correct": true,
+          "prediction": "30",
+          "gold": "30"
+        }
+      ]
+    }
+  },
+  "cosine_similarity_matrix": {
+    "bn": {
+      "bn": 1.0,
+      "de": 0.7563306367397309,
+      "en": 0.7210038021206856,
+      "es": 0.7476669445633888,
+      "fr": 0.7519839665293694,
+      "ja": 0.7774113410711289,
+      "ru": 0.7955977112054825,
+      "sw": 0.7374131730198861,
+      "te": 0.8211553010344506,
+      "th": 0.8613842925429345,
+      "zh": 0.7250553572177887
+    },
+    "de": {
+      "bn": 0.7563306367397309,
+      "de": 1.0,
+      "en": 0.816923594623804,
+      "es": 0.8580566161870956,
+      "fr": 0.8739657360315323,
+      "ja": 0.7822652781009674,
+      "ru": 0.7430562734603882,
+      "sw": 0.7771533282101154,
+      "te": 0.7910701957345009,
+      "th": 0.7322914481163025,
+      "zh": 0.7742335957288742
+    },
+    "en": {
+      "bn": 0.7210038021206856,
+      "de": 0.816923594623804,
+      "en": 1.0,
+      "es": 0.8144037139415741,
+      "fr": 0.8125491923093796,
+      "ja": 0.7415206864476204,
+      "ru": 0.7285185143351555,
+      "sw": 0.7270037533342838,
+      "te": 0.7450372177362442,
+      "th": 0.7221991166472435,
+      "zh": 0.7661628611385822
+    },
+    "es": {
+      "bn": 0.7476669445633888,
+      "de": 0.8580566161870956,
+      "en": 0.8144037139415741,
+      "es": 1.0,
+      "fr": 0.8923568448424339,
+      "ja": 0.777874111533165,
+      "ru": 0.7451942926645279,
+      "sw": 0.7872919823229313,
+      "te": 0.7837520810961723,
+      "th": 0.7336738263070584,
+      "zh": 0.7865105372667313
+    },
+    "fr": {
+      "bn": 0.7519839665293694,
+      "de": 0.8739657360315323,
+      "en": 0.8125491923093796,
+      "es": 0.8923568448424339,
+      "fr": 1.0,
+      "ja": 0.7877176788449287,
+      "ru": 0.7404493460059166,
+      "sw": 0.7911900861561298,
+      "te": 0.7962153589725495,
+      "th": 0.7320747701823711,
+      "zh": 0.7768230229616165
+    },
+    "ja": {
+      "bn": 0.7774113410711289,
+      "de": 0.7822652781009674,
+      "en": 0.7415206864476204,
+      "es": 0.777874111533165,
+      "fr": 0.7877176788449287,
+      "ja": 1.0,
+      "ru": 0.6960642036795616,
+      "sw": 0.7213165633380413,
+      "te": 0.7696162086725234,
+      "th": 0.7502288769185543,
+      "zh": 0.7674866223335266
+    },
+    "ru": {
+      "bn": 0.7955977112054825,
+      "de": 0.7430562734603882,
+      "en": 0.7285185143351555,
+      "es": 0.7451942926645279,
+      "fr": 0.7404493460059166,
+      "ja": 0.6960642036795616,
+      "ru": 1.0,
+      "sw": 0.7063835564255715,
+      "te": 0.734736648797989,
+      "th": 0.7886131086945534,
+      "zh": 0.7221193605661392
+    },
+    "sw": {
+      "bn": 0.7374131730198861,
+      "de": 0.7771533282101154,
+      "en": 0.7270037533342838,
+      "es": 0.7872919823229313,
+      "fr": 0.7911900861561298,
+      "ja": 0.7213165633380413,
+      "ru": 0.7063835564255715,
+      "sw": 1.0,
+      "te": 0.7643999694287777,
+      "th": 0.7135702057182789,
+      "zh": 0.7054186405241489
+    },
+    "te": {
+      "bn": 0.8211553010344506,
+      "de": 0.7910701957345009,
+      "en": 0.7450372177362442,
+      "es": 0.7837520810961723,
+      "fr": 0.7962153589725495,
+      "ja": 0.7696162086725234,
+      "ru": 0.734736648797989,
+      "sw": 0.7643999694287777,
+      "te": 1.0,
+      "th": 0.7489296086132526,
+      "zh": 0.7356721176207066
+    },
+    "th": {
+      "bn": 0.8613842925429345,
+      "de": 0.7322914481163025,
+      "en": 0.7221991166472435,
+      "es": 0.7336738263070584,
+      "fr": 0.7320747701823711,
+      "ja": 0.7502288769185543,
+      "ru": 0.7886131086945534,
+      "sw": 0.7135702057182789,
+      "te": 0.7489296086132526,
+      "th": 1.0,
+      "zh": 0.7188513417541981
+    },
+    "zh": {
+      "bn": 0.7250553572177887,
+      "de": 0.7742335957288742,
+      "en": 0.7661628611385822,
+      "es": 0.7865105372667313,
+      "fr": 0.7768230229616165,
+      "ja": 0.7674866223335266,
+      "ru": 0.7221193605661392,
+      "sw": 0.7054186405241489,
+      "te": 0.7356721176207066,
+      "th": 0.7188513417541981,
+      "zh": 1.0
+    }
+  }
+}

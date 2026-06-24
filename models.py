@@ -58,6 +58,7 @@ def _ensure_pad_token(tokenizer: AutoTokenizer) -> None:
             tokenizer.pad_token = tokenizer.eos_token
         else:
             tokenizer.add_special_tokens({"pad_token": "<pad>"})
+    tokenizer.padding_side = "left"
 
 
 def _default_model_dtype(device) -> torch.dtype:

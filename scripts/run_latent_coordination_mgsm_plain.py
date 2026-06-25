@@ -1,9 +1,25 @@
 #!/usr/bin/env python3
+<<<<<<< HEAD
 """Run latent_coordination agents on MGSM without modifying latent_coordination.
 
 This runner is intentionally external to src/latent_coordination. It loads MGSM,
 uses the existing TranslationAgent and ReasoningAgent classes, and scores with
 the repo's boxed-answer parser.
+=======
+"""Run the prototype latent_coordination agents on MGSM without editing that package.
+
+This is intentionally a thin adapter around src/latent_coordination:
+  - loads MGSM via the existing data.py loader
+  - runs the existing ReasoningAgent and/or TranslationAgent
+  - optionally runs a second pass with the first pass latent_state injected
+  - scores with the existing GSM/MGSM answer extractor
+
+Modes:
+  reasoning_only       one ReasoningAgent call per problem
+  reasoning_latent_2pass first ReasoningAgent call, then a second call with latent_state
+  translate_reason     TranslationAgent processes question, ReasoningAgent solves text
+  translate_reason_latent TranslationAgent processes question and passes latent_state
+>>>>>>> feat/unsloth-llamacpp-pipeline
 """
 
 from __future__ import annotations
@@ -79,13 +95,19 @@ def score_text(text: str, gold: str) -> tuple[str | None, bool]:
     return pred, bool(pred and gold_norm and pred == gold_norm)
 
 
+<<<<<<< HEAD
 def run_reasoning_only(reasoner: ReasoningAgent, item: Dict, args: argparse.Namespace) -> Dict:
     task = AgentTask(
+=======
+def run_reasoning_only(agent: ReasoningAgent, item: Dict, args: argparse.Namespace) -> Dict:
+    base_task = AgentTask(
+>>>>>>> feat/unsloth-llamacpp-pipeline
         task_id=f"mgsm_{item['lang']}_{item['idx']}",
         query=item["question"],
         context=args.context,
         target_language=item["lang"],
     )
+<<<<<<< HEAD
     response = reasoner.process(task)
     pred, ok = score_text(response.output_text, item["gold"])
     return {
@@ -128,6 +150,23 @@ def run_reasoning_latent_2pass(reasoner: ReasoningAgent, item: Dict, args: argpa
     )
     final = reasoner.process(second_task)
     first_pred, first_ok = score_text(first.output_text, item["gold"])
+=======
+
+    first = agent.process(base_task)
+    final = first
+    first_pred, first_ok = score_text(first.output_text, item["gold"])
+
+    if args.mode == "reasoning_latent_2pass":
+        second_task = AgentTask(
+            task_id=f"mgsm_{item['lang']}_{item['idx']}_latent2",
+            query=item["question"],
+            context=first.output_text if args.pass_text_context else "",
+            latent_state=first.latent_state,
+            target_language=item["lang"],
+        )
+        final = agent.process(second_task)
+
+>>>>>>> feat/unsloth-llamacpp-pipeline
     pred, ok = score_text(final.output_text, item["gold"])
     return {
         "lang": item["lang"],
@@ -143,9 +182,15 @@ def run_reasoning_latent_2pass(reasoner: ReasoningAgent, item: Dict, args: argpa
         "first_pass_output": first.output_text,
         "translated_question": "",
         "translation_output": "",
+<<<<<<< HEAD
         "used_second_pass": True,
         "used_translation": False,
         "used_translation_latent": True,
+=======
+        "used_second_pass": args.mode == "reasoning_latent_2pass",
+        "used_translation": False,
+        "used_translation_latent": False,
+>>>>>>> feat/unsloth-llamacpp-pipeline
         "first_elapsed_ms": first.elapsed_ms,
         "translation_elapsed_ms": 0.0,
         "final_elapsed_ms": final.elapsed_ms,
@@ -158,7 +203,15 @@ def run_translate_reason(
     item: Dict,
     args: argparse.Namespace,
 ) -> Dict:
+<<<<<<< HEAD
     target_language = item["lang"] if args.translation_target_language == "same" else args.translation_target_language
+=======
+    target_language = (
+        item["lang"]
+        if args.translation_target_language == "same"
+        else args.translation_target_language
+    )
+>>>>>>> feat/unsloth-llamacpp-pipeline
     translation_task = AgentTask(
         task_id=f"mgsm_{item['lang']}_{item['idx']}_translate",
         query=item["question"],
@@ -166,8 +219,17 @@ def run_translate_reason(
     )
     translation = translator.process(translation_task)
     translated_question = translation.output_text.strip() or item["question"]
+<<<<<<< HEAD
     latent_state = translation.latent_state if args.mode == "translate_reason_latent" else None
 
+=======
+
+    latent_state = (
+        translation.latent_state
+        if args.mode == "translate_reason_latent"
+        else None
+    )
+>>>>>>> feat/unsloth-llamacpp-pipeline
     context = ""
     if args.include_original_question:
         context = f"Original question ({item['lang']}): {item['question']}"
@@ -180,8 +242,14 @@ def run_translate_reason(
         target_language=target_language,
     )
     reasoning = reasoner.process(reasoning_task)
+<<<<<<< HEAD
     first_pred, first_ok = score_text(translation.output_text, item["gold"])
     pred, ok = score_text(reasoning.output_text, item["gold"])
+=======
+
+    pred, ok = score_text(reasoning.output_text, item["gold"])
+    first_pred, first_ok = score_text(translation.output_text, item["gold"])
+>>>>>>> feat/unsloth-llamacpp-pipeline
     return {
         "lang": item["lang"],
         "idx": item["idx"],
@@ -232,15 +300,35 @@ def main() -> None:
     parser.add_argument("--load_in_4bit", action="store_true")
     parser.add_argument(
         "--mode",
+<<<<<<< HEAD
         choices=["reasoning_only", "reasoning_latent_2pass", "translate_reason", "translate_reason_latent"],
         default="reasoning_only",
     )
     parser.add_argument("--pass_text_context", action="store_true")
+=======
+        choices=[
+            "reasoning_only",
+            "reasoning_latent_2pass",
+            "translate_reason",
+            "translate_reason_latent",
+        ],
+        default="reasoning_only",
+    )
+    parser.add_argument(
+        "--pass_text_context",
+        action="store_true",
+        help="In 2-pass mode, pass first output as text context in addition to latent_state.",
+    )
+>>>>>>> feat/unsloth-llamacpp-pipeline
     parser.add_argument("--context", default="")
     parser.add_argument(
         "--translation_target_language",
         default="same",
+<<<<<<< HEAD
         help="Use 'same' to keep each MGSM language as target; set 'en' only for an English-pivot ablation.",
+=======
+        help="Use 'same' to keep each MGSM language as the translation target; set e.g. 'en' only for an English-pivot ablation.",
+>>>>>>> feat/unsloth-llamacpp-pipeline
     )
     parser.add_argument("--include_original_question", action="store_true")
     parser.add_argument("--out_dir", default="results/latent_coordination_mgsm_plain")
@@ -255,19 +343,33 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     reasoner = make_reasoning_agent(args)
+<<<<<<< HEAD
     translator = make_translation_agent(args) if args.mode in {"translate_reason", "translate_reason_latent"} else None
+=======
+    translator = (
+        make_translation_agent(args)
+        if args.mode in {"translate_reason", "translate_reason_latent"}
+        else None
+    )
+>>>>>>> feat/unsloth-llamacpp-pipeline
     rows: List[Dict] = []
 
     for lang in langs:
         print(f"=== {lang} ===", flush=True)
         for item in iter_examples(lang, args.max_examples):
             print(f"  idx={item['idx']}", flush=True)
+<<<<<<< HEAD
             if args.mode == "reasoning_only":
                 row = run_reasoning_only(reasoner, item, args)
             elif args.mode == "reasoning_latent_2pass":
                 row = run_reasoning_latent_2pass(reasoner, item, args)
             else:
                 assert translator is not None
+=======
+            if translator is None:
+                row = run_reasoning_only(reasoner, item, args)
+            else:
+>>>>>>> feat/unsloth-llamacpp-pipeline
                 row = run_translate_reason(translator, reasoner, item, args)
             rows.append(row)
             write_csv(out_dir / "examples.partial.csv", rows)
@@ -279,7 +381,18 @@ def main() -> None:
         if not group:
             continue
         correct = sum(1 for r in group if r["correct"])
+<<<<<<< HEAD
         summary_rows.append({"lang": lang, "accuracy": correct / len(group), "correct": correct, "total": len(group)})
+=======
+        summary_rows.append(
+            {
+                "lang": lang,
+                "accuracy": correct / len(group),
+                "correct": correct,
+                "total": len(group),
+            }
+        )
+>>>>>>> feat/unsloth-llamacpp-pipeline
     write_csv(out_dir / "language_summary.csv", summary_rows)
 
     meta = {

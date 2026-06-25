@@ -12,23 +12,16 @@ TRANSLATION_MAX_NEW_TOKENS="${TRANSLATION_MAX_NEW_TOKENS:-512}"
 MODE="${MODE:-reasoning_only}"
 TRANSLATION_TARGET_LANGUAGE="${TRANSLATION_TARGET_LANGUAGE:-same}"
 INCLUDE_ORIGINAL_QUESTION="${INCLUDE_ORIGINAL_QUESTION:-0}"
-<<<<<<< HEAD
 PASS_TEXT_CONTEXT="${PASS_TEXT_CONTEXT:-0}"
-=======
->>>>>>> feat/unsloth-llamacpp-pipeline
 LOAD_IN_8BIT="${LOAD_IN_8BIT:-0}"
 LOAD_IN_4BIT="${LOAD_IN_4BIT:-0}"
 OUT_DIR="${OUT_DIR:-results/latent_coordination_mgsm_plain}"
 RUN_NAME="${RUN_NAME:-}"
 
 export PYTHONPATH="src:.:${PYTHONPATH:-}"
-<<<<<<< HEAD
 if [[ -n "${CONDA_PREFIX:-}" ]]; then
   export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH:-}"
 fi
-=======
-export LD_LIBRARY_PATH="${CONDA_PREFIX:-}/lib:${LD_LIBRARY_PATH:-}"
->>>>>>> feat/unsloth-llamacpp-pipeline
 export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 
 echo "================ latent_coordination MGSM plain ================"
@@ -43,10 +36,7 @@ echo "  trans tokens: ${TRANSLATION_MAX_NEW_TOKENS}"
 echo "  mode        : ${MODE}"
 echo "  trans target: ${TRANSLATION_TARGET_LANGUAGE}"
 echo "  orig context: ${INCLUDE_ORIGINAL_QUESTION}"
-<<<<<<< HEAD
 echo "  pass text   : ${PASS_TEXT_CONTEXT}"
-=======
->>>>>>> feat/unsloth-llamacpp-pipeline
 echo "  load 8bit   : ${LOAD_IN_8BIT}"
 echo "  load 4bit   : ${LOAD_IN_4BIT}"
 echo "  out_dir     : ${OUT_DIR}"
@@ -59,12 +49,9 @@ fi
 if [[ "${INCLUDE_ORIGINAL_QUESTION}" == "1" || "${INCLUDE_ORIGINAL_QUESTION}" == "true" ]]; then
   ARGS+=(--include_original_question)
 fi
-<<<<<<< HEAD
 if [[ "${PASS_TEXT_CONTEXT}" == "1" || "${PASS_TEXT_CONTEXT}" == "true" ]]; then
   ARGS+=(--pass_text_context)
 fi
-=======
->>>>>>> feat/unsloth-llamacpp-pipeline
 if [[ "${LOAD_IN_8BIT}" == "1" || "${LOAD_IN_8BIT}" == "true" ]]; then
   ARGS+=(--load_in_8bit)
 fi

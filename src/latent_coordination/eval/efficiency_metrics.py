@@ -25,9 +25,74 @@ class AblationReport:
     """Contains results comparing communication modes in MAS."""
     metrics_by_mode: Dict[str, Dict[str, float]]
     significance_tests: Dict[str, float] = field(default_factory=dict)
+    confidence_intervals: Dict[str, Dict[str, tuple]] = field(default_factory=dict)
 
     def to_dict(self) -> Dict:
         return asdict(self)
+
+
+def bootstrap_ci(
+    values: List[float],
+    n_bootstrap: int = 1000,
+    ci: float = 0.95,
+    seed: int = 42,
+) -> "Tuple[float, float]":
+    """Bootstrap confidence interval for a list of scalar values.
+
+    Args:
+        values: Sample values.
+        n_bootstrap: Number of bootstrap resamples.
+        ci: Confidence level (e.g. 0.95 for 95% CI).
+        seed: Random seed for reproducibility.
+
+    Returns:
+        Tuple (lower, upper) CI bounds.
+    """
+    rng = np.random.default_rng(seed)
+    arr = np.array(values, dtype=float)
+    if len(arr) == 0:
+        return (float("nan"), float("nan"))
+    bootstrap_means = [rng.choice(arr, size=len(arr), replace=True).mean() for _ in range(n_bootstrap)]
+    alpha = (1.0 - ci) / 2.0
+    lower = float(np.quantile(bootstrap_means, alpha))
+    upper = float(np.quantile(bootstrap_means, 1.0 - alpha))
+    return (lower, upper)
+
+
+def compute_breakeven(
+    n_agents: int,
+    avg_msg_tokens: int,
+    adapter_flops: float,
+    token_gen_flops_per_token: float = 1e9,
+) -> Dict[str, float]:
+    """Estimate the message-length × N breakeven point for latent vs text MAS.
+
+    The latent channel pays a fixed per-transfer adapter cost (two MLP forward
+    passes).  The text channel pays token-generation cost proportional to
+    message length.  This returns the message length at which they break even
+    for the given N, and the N at which latent wins for the given message length.
+
+    Args:
+        n_agents: Number of agents in the system.
+        avg_msg_tokens: Average message length in tokens.
+        adapter_flops: FLOPs for one adapter encode+decode pair.
+        token_gen_flops_per_token: FLOPs to generate one token.
+
+    Returns:
+        Dict with ``latent_cost_flops``, ``text_cost_flops``, ``breakeven_msg_len``,
+        ``breakeven_n``, and ``latent_wins``.
+    """
+    latent_cost = n_agents * adapter_flops
+    text_cost = n_agents * (n_agents - 1) * avg_msg_tokens * token_gen_flops_per_token
+    breakeven_len = adapter_flops / (token_gen_flops_per_token * (n_agents - 1)) if n_agents > 1 else float("inf")
+    breakeven_n_val = (adapter_flops / (avg_msg_tokens * token_gen_flops_per_token)) + 1
+    return {
+        "latent_cost_flops": latent_cost,
+        "text_cost_flops": text_cost,
+        "breakeven_msg_len": breakeven_len,
+        "breakeven_n": breakeven_n_val,
+        "latent_wins": latent_cost < text_cost,
+    }
 
 
 class EfficiencyAnalyzer:
@@ -130,12 +195,14 @@ class EfficiencyAnalyzer:
         metrics: Dict[str, Dict[str, float]] = {}
 
         # --- Token mode ---
+        per_sample: Dict[str, Dict[str, List[float]]] = {}
         if "token" in modes:
-            t0 = time.perf_counter()
+            per_sample["token"] = {"latency_ms": [], "accuracy": [], "cost": []}
             token_costs = []
             accuracies = []
             from latent_coordination.eval.scoring import select_answer
             for task in tasks:
+                t_task = time.perf_counter()
                 plan = system.route(task)
                 context = task.context or ""
                 step_responses = []
@@ -153,44 +220,57 @@ class EfficiencyAnalyzer:
                     context = resp.output_text
                     token_costs.append(len(resp.output_text.split()))
                     step_responses.append(resp)
-                # Score the substantive answer (last non-safety step), not the safety verdict.
                 answer = select_answer(step_responses)
                 ok = answer is not None and answer.output_text and not answer.output_text.startswith("[")
-                accuracies.append(1.0 if ok else 0.0)
-            token_latency = (time.perf_counter() - t0) / len(tasks) * 1000
+                acc = 1.0 if ok else 0.0
+                lat = (time.perf_counter() - t_task) * 1000
+                accuracies.append(acc)
+                per_sample["token"]["latency_ms"].append(lat)
+                per_sample["token"]["accuracy"].append(acc)
+                per_sample["token"]["cost"].append(float(len(step_responses[-1].output_text.split()) if step_responses else 0))
             metrics["token"] = {
-                "avg_latency_ms": token_latency,
+                "avg_latency_ms": float(np.mean(per_sample["token"]["latency_ms"])) if per_sample["token"]["latency_ms"] else 0.0,
                 "avg_cost_metric": float(np.mean(token_costs)) if token_costs else 0.0,
                 "accuracy": float(np.mean(accuracies)) if accuracies else 0.0,
             }
 
         # --- Latent mode ---
         if "latent" in modes:
+            per_sample["latent"] = {"latency_ms": [], "accuracy": [], "cost": []}
             from latent_coordination.latent_space.universal_space import UniversalLatentSpace
             universal_space = UniversalLatentSpace(universal_dim=128)
-            t0 = time.perf_counter()
             accuracies_latent = []
             from latent_coordination.eval.scoring import select_answer
             for task in tasks:
+                t_task = time.perf_counter()
                 orch_result = system.execute(task, system.route(task), universal_space)
-                # Score the substantive answer (last non-safety agent), not the safety verdict.
                 answer = select_answer(orch_result.agent_responses)
                 ok = answer is not None and answer.output_text and not answer.output_text.startswith("[")
-                accuracies_latent.append(1.0 if ok else 0.0)
-            latent_latency = (time.perf_counter() - t0) / len(tasks) * 1000
+                acc = 1.0 if ok else 0.0
+                lat = (time.perf_counter() - t_task) * 1000
+                accuracies_latent.append(acc)
+                per_sample["latent"]["latency_ms"].append(lat)
+                per_sample["latent"]["accuracy"].append(acc)
+                per_sample["latent"]["cost"].append(256.0)
             metrics["latent"] = {
-                "avg_latency_ms": latent_latency,
-                "avg_cost_metric": 256.0,  # fixed latent adapter byte cost
+                "avg_latency_ms": float(np.mean(per_sample["latent"]["latency_ms"])) if per_sample["latent"]["latency_ms"] else 0.0,
+                "avg_cost_metric": 256.0,
                 "accuracy": float(np.mean(accuracies_latent)) if accuracies_latent else 0.0,
             }
 
-        # --- Significance tests ---
+        # --- Significance tests and CIs ---
         significance_tests: Dict[str, float] = {}
+        confidence_intervals: Dict[str, Dict[str, tuple]] = {}
+
+        for mode, samples in per_sample.items():
+            confidence_intervals[mode] = {
+                "accuracy_ci": bootstrap_ci(samples["accuracy"]),
+                "latency_ci": bootstrap_ci(samples["latency_ms"]),
+            }
+
         if "token" in metrics and "latent" in metrics:
-            # Compare latencies (token vs latent)
             token_lat = metrics["token"]["avg_latency_ms"]
             latent_lat = metrics["latent"]["avg_latency_ms"]
-            # Report the ratio as a proxy (actual t-test requires per-sample data)
             significance_tests["token_vs_latent_latency_ratio"] = (
                 token_lat / latent_lat if latent_lat > 0 else float("inf")
             )
@@ -200,5 +280,6 @@ class EfficiencyAnalyzer:
 
         return AblationReport(
             metrics_by_mode=metrics,
-            significance_tests=significance_tests
+            significance_tests=significance_tests,
+            confidence_intervals=confidence_intervals,
         )

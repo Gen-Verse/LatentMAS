@@ -136,6 +136,59 @@ python run_save_hidden_states.py
 
 ---
 
+
+### Latent Coordination Multi-Agent Pipeline
+
+Trains the CVAE topology prior, fits universal latent adapters, clusters intent centroids, runs multi-agent ablations:
+
+```bash
+python scripts/run_coordination_pipeline.py --config configs/latent_coordination.yaml
+```
+
+### Modular combinations & quick resume
+
+```bash
+# Coordination: pick eval modes + generation backend
+python scripts/run_coordination_pipeline.py --config configs/latent_coordination.yaml \
+    --comm-modes token_based_mas,latent_based_mas_ours --backend auto --languages th,my
+
+```
+
+Results are cached per fine-grained unit — coordination per
+`(model, comm-mode)`. So if you first run one baseline/
+mode/language and later add another, **only the new unit is computed** (the rest load from cache).
+`evaluate_all.py` accepts the same flags and forwards them to the right pipeline(s).
+
+### vLLM backend (coordination, gated)
+
+Coordination's token-only modes (`single_agent_baseline`, `token_based_mas`) can use vLLM via
+`--backend auto|hf|vllm`. vLLM is **auto-gated to Ampere+ GPUs (cc ≥ 8.0)**: on this V100/sm_70 box
+stock vLLM is unsupported, so `auto` transparently falls back to the HF/accelerate backend (logged).
+Install the extra with `pip install -e ".[vllm]"` on supported hardware; the latent mode always uses
+HF (it needs hidden-state hooks). Override the gate with `SRE_FORCE_VLLM=1` after building an sm_70 fork.
+
+
+> **Hardware note (8× V100-16GB):** V100 (compute cap 7.0) has no bf16 — all loads use fp16,
+> and 8–9B models are loaded in **8-bit** (`load_in_8bit: true`) to fit 16 GB. Model loading goes
+> through `src/shared/model_loader.py` (accelerate). The interpretability/steering methods rely on
+> forward hooks over hidden states, so vLLM/llama.cpp/unsloth are not used for those paths.
+
+### Smoke Test (verify all code paths fast)
+
+```bash
+bash scripts/smoke_test.sh            # all 3 pipelines, 2 langs, tiny samples (~1 GPU)
+bash scripts/smoke_test.sh --dry-run  # imports + config validation only, no inference
+bash scripts/smoke_test.sh --coordination-only
+```
+### Resume from Checkpoint
+
+All pipelines checkpoint every stage (atomic writes) and resume from the last completed stage. A fresh run (without `--resume`) never reuses stale checkpoints:
+
+```bash
+python scripts/run_coordination_pipeline.py --config configs/latent_coordination.yaml      --resume
+```
+
+
 ## Citation
 
 If you use this code, please cite:

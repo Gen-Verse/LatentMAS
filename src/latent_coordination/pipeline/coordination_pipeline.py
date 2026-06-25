@@ -172,11 +172,34 @@ class CoordinationPipeline:
 
         return final_report
 
+    def _remap_agent_devices(self, router: "AdaptiveOrchestrator") -> None:
+        """Remap agent devices after checkpoint restore to match current config."""
+        agent_devices = {
+            a.get("role"): a.get("device", self.config.device)
+            for a in self._raw_config.get("agents", [])
+        }
+        for agent in router.agents.values():
+            role = agent.config.role
+            if role in agent_devices:
+                old = agent.config.device
+                new_device = agent_devices[role]
+                agent.config.device = new_device
+                # _device is set at __init__ time from config.device; must stay in sync
+                # so that tokenizer/tensor .to(self._device) calls use the correct GPU.
+                agent._device = torch.device(new_device)
+                if old != new_device:
+                    logger.info(
+                        "Remapped agent '%s' device %s → %s",
+                        agent.config.agent_id, old, new_device,
+                    )
+
     def _run_stage_a(self) -> Tuple[AdaptiveOrchestrator, UniversalLatentSpace]:
         """Stage A: Setup orchestrators, databases, and adapters registry."""
         if self.resume and self.checkpoint_manager.exists("stage_a"):
             logger.info("Resuming Stage A from checkpoints.")
-            return self.checkpoint_manager.load_latest("stage_a")
+            router, universal_space = self.checkpoint_manager.load_latest("stage_a")
+            self._remap_agent_devices(router)
+            return router, universal_space
 
         logger.info("Running Stage A: Launching agent registry and universal space mappings.")
         router = AdaptiveOrchestrator(device=self.config.device)

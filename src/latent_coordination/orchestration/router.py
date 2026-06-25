@@ -7,6 +7,8 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from torch import Tensor
 
 from latent_coordination.agents.base_agent import BaseAgent, AgentResponse, AgentTask
@@ -39,6 +41,7 @@ class RoutingPlan:
     selected_agents: List[str]
     execution_order: List[str]
     estimated_cost: float
+    routing_confidence: float = 1.0
 
 
 @dataclass
@@ -52,21 +55,109 @@ class OrchestrationResult:
     communication_cost_latent: float
 
 
+class AttentionRouter(nn.Module):
+    """Learned attention-based intent router.
+
+    Replaces k-means centroid assignment with scaled dot-product attention over
+    a learned key matrix (one key per role).  This avoids the need to choose k
+    a priori and handles non-convex, non-spherical intent clusters.
+
+    Args:
+        query_dim: Dimensionality of incoming query embeddings.
+        roles: Ordered list of agent role names the router can dispatch to.
+        temperature: Softmax temperature for the attention distribution.
+    """
+
+    def __init__(
+        self,
+        query_dim: int,
+        roles: List[str],
+        temperature: float = 1.0,
+    ) -> None:
+        super().__init__()
+        self.roles = roles
+        self.temperature = temperature
+        n_roles = len(roles)
+        self.keys = nn.Parameter(torch.randn(n_roles, query_dim) * 0.02)
+        self.query_proj = nn.Linear(query_dim, query_dim, bias=False)
+
+    def forward(self, query_emb: Tensor) -> Tuple[Tensor, Tensor]:
+        """Compute soft role distribution and confidence.
+
+        Args:
+            query_emb: Query embedding, shape (1, query_dim) or (query_dim,).
+
+        Returns:
+            Tuple of:
+                weights: Soft role weights, shape (n_roles,).
+                confidence: Max weight value (routing sharpness indicator).
+        """
+        if query_emb.dim() == 1:
+            query_emb = query_emb.unsqueeze(0)
+        q = self.query_proj(query_emb.float())  # (1, D)
+        k = F.normalize(self.keys, dim=-1)       # (R, D)
+        scores = (q @ k.T) / (self.temperature * (q.shape[-1] ** 0.5))  # (1, R)
+        weights = F.softmax(scores, dim=-1).squeeze(0)  # (R,)
+        confidence = float(weights.max().item())
+        return weights, torch.tensor(confidence)
+
+    def dispatch(
+        self,
+        query_emb: Tensor,
+        threshold: float = 0.1,
+    ) -> Tuple[List[str], float]:
+        """Return roles with weight above threshold (hard dispatch from soft weights).
+
+        Args:
+            query_emb: Query embedding.
+            threshold: Minimum weight to include a role (default selects top roles).
+
+        Returns:
+            Tuple of (selected_roles list, confidence float).
+        """
+        with torch.no_grad():
+            weights, conf = self(query_emb)
+        selected = [self.roles[i] for i, w in enumerate(weights) if w.item() >= threshold]
+        if not selected:
+            selected = [self.roles[int(weights.argmax().item())]]
+        return selected, float(conf.item())
+
+
 class AdaptiveOrchestrator:
     """Orchestrates multi-agent planning and routing using latent intent centroids."""
 
-    def __init__(self, device: str = "cpu") -> None:
+    def __init__(self, device: str = "cpu", router_type: str = "attention") -> None:
         self.device = torch.device(device)
         self.agents: Dict[str, BaseAgent] = {}
-        # Latent centroids representing historical intent categories (size: n_centroids, latent_dim)
+        self.router_type = router_type
+        # K-means centroids (kept for ablation when router_type='kmeans')
         self.centroids: Optional[Tensor] = None
-        self.centroid_roles: Dict[int, List[str]] = {}  # maps centroid ID to list of roles needed
-        logger.info("AdaptiveOrchestrator initialized on device: %s", device)
+        self.centroid_roles: Dict[int, List[str]] = {}
+        # Attention router (initialized lazily once agents are registered)
+        self._attention_router: Optional[AttentionRouter] = None
+        logger.info("AdaptiveOrchestrator initialized on device: %s, router_type=%s", device, router_type)
+
+    def __setstate__(self, state: dict) -> None:
+        """Backward-compatible unpickling for checkpoints missing newer attributes."""
+        state.setdefault("router_type", "kmeans")
+        state.setdefault("_attention_router", None)
+        self.__dict__.update(state)
 
     def register_agent(self, agent: BaseAgent) -> None:
         """Add an agent to the router's registry."""
         self.agents[agent.config.agent_id] = agent
+        self._attention_router = None  # reset; rebuilt on next route() call
         logger.info("Registered agent: %s (%s)", agent.config.agent_id, agent.config.role)
+
+    def _get_attention_router(self, query_dim: int) -> AttentionRouter:
+        """Lazily build/rebuild the AttentionRouter based on registered agents."""
+        if self._attention_router is None:
+            roles = list({a.config.role for a in self.agents.values()})
+            self._attention_router = AttentionRouter(
+                query_dim=query_dim, roles=roles
+            ).to(self.device)
+            logger.debug("AttentionRouter built with roles: %s", roles)
+        return self._attention_router
 
     def fit_centroids(self, task_embeddings: Tensor, n_clusters: int = 5) -> None:
         """Compute intent centroids using simple PyTorch-based k-means clustering."""
@@ -122,23 +213,33 @@ class AdaptiveOrchestrator:
     def route(self, task: AgentTask, topology: Optional[Tensor] = None) -> RoutingPlan:
         """Select specialized agents based on task query intent and graph topology.
 
-        Encodes the task query into a real bag-of-words embedding and assigns
-        it to the nearest intent centroid via Euclidean distance.
+        Encodes the task query into a bag-of-words embedding then routes via
+        the configured router (attention or k-means).
         """
         import hashlib
-        vocab_size = 30522
-        tokens = []
-        for word in task.query.lower().split()[:32]:
-            h = (int(hashlib.md5(word.encode()).hexdigest(), 16) % (vocab_size - 1)) + 1
-            tokens.append(h)
-        while len(tokens) < 32:
-            tokens.append(0)
-        query_embedding = torch.tensor(tokens, dtype=torch.float32).unsqueeze(0)
+        query_dim = 32
+        vec = torch.zeros(query_dim)
+        for word in task.query.lower().split():
+            h = int(hashlib.md5(word.encode()).hexdigest(), 16) % query_dim
+            vec[h] += 1.0
+        norm = vec.norm()
+        query_embedding = (vec / norm.clamp(min=1e-9)).unsqueeze(0)  # (1, query_dim)
 
-        centroid_id = self.assign_centroid(query_embedding)
-        required_roles = self.centroid_roles.get(centroid_id, ["reasoning", "translation", "safety"])
+        routing_confidence = 1.0
 
-        # Map roles to specific agent IDs registered
+        if self.router_type == "attention":
+            attn_router = self._get_attention_router(query_dim)
+            required_roles, routing_confidence = attn_router.dispatch(
+                query_embedding.to(self.device)
+            )
+        else:
+            # K-means path (ablation)
+            centroid_id = self.assign_centroid(query_embedding)
+            required_roles = self.centroid_roles.get(
+                centroid_id, ["reasoning", "translation", "safety"]
+            )
+
+        # Map roles to specific registered agent IDs
         selected_agents = []
         for role in required_roles:
             for aid, agent in self.agents.items():
@@ -146,26 +247,26 @@ class AdaptiveOrchestrator:
                     selected_agents.append(aid)
                     break
 
-        # Fallback to safety agent if none selected
         if not selected_agents:
             selected_agents = list(self.agents.keys())[:1]
 
-        # Order agents sequentially
         execution_order = list(selected_agents)
         estimated_cost = len(selected_agents) * 1.5
 
         logger.info(
-            "Routed Task %s to sequence: %s | centroid=%d",
+            "Routed Task %s to sequence: %s | router=%s | confidence=%.3f",
             task.task_id,
             execution_order,
-            centroid_id
+            self.router_type,
+            routing_confidence,
         )
 
         return RoutingPlan(
             task_id=task.task_id,
             selected_agents=selected_agents,
             execution_order=execution_order,
-            estimated_cost=estimated_cost
+            estimated_cost=estimated_cost,
+            routing_confidence=routing_confidence,
         )
 
     def execute(

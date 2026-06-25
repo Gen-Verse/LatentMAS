@@ -54,6 +54,7 @@ class TransferRecord:
         payload_shape: Shape of the transferred tensor as a tuple.
         cosine_similarity: Roundtrip cosine similarity if computed, else None.
         latency_ms: Wall-clock time for the transfer in milliseconds.
+        effective_rank: Effective rank of the transferred hub vector if computed.
     """
 
     sender_id: str
@@ -62,6 +63,7 @@ class TransferRecord:
     payload_shape: Tuple[int, ...]
     cosine_similarity: Optional[float]
     latency_ms: float
+    effective_rank: Optional[float] = None
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +235,7 @@ class UniversalLatentSpace:
         receiver_id: str,
         hidden_states: Tensor,
         record_transfer: bool = True,
+        norm_match: bool = False,
     ) -> Tensor:
         """Transfer latent states from one agent to another via universal space.
 
@@ -243,24 +246,37 @@ class UniversalLatentSpace:
             receiver_id: Agent that will consume the transferred states.
             hidden_states: Sender's hidden state tensor, shape (B, sender_hidden_dim).
             record_transfer: If True, logs this transfer to history.
+            norm_match: If True, rescales the decoded output so its RMS norm
+                matches the source hidden states (prevents off-manifold injection).
 
         Returns:
             Receiver-compatible tensor of shape (B, receiver_hidden_dim).
         """
+        from latent_coordination.latent_space.adapter import NormMatchLayer
         t_start = time.perf_counter()
 
         universal = self.encode(sender_id, hidden_states)
         received = self.decode(receiver_id, universal)
 
+        if norm_match:
+            _nm = NormMatchLayer()
+            received = _nm(received, hidden_states.to(received.device).float())
+
         latency_ms = (time.perf_counter() - t_start) * 1000.0
 
         if record_transfer:
-            # Compute cosine similarity in universal space (reuse already-computed universal)
             with torch.no_grad():
                 receiver_u = self.encode(receiver_id, received) if receiver_id in self._agents else universal
                 cos_sim = float(
                     F.cosine_similarity(universal, receiver_u, dim=-1).mean().item()
                 )
+                try:
+                    sv = torch.linalg.svdvals(universal.float())
+                    sv_norm = sv / (sv.sum() + 1e-12)
+                    h = -(sv_norm * (sv_norm + 1e-12).log()).sum().item()
+                    eff_rank: Optional[float] = float(torch.exp(torch.tensor(h)).item())
+                except Exception:
+                    eff_rank = None
             self._history.append(
                 TransferRecord(
                     sender_id=sender_id,
@@ -269,6 +285,7 @@ class UniversalLatentSpace:
                     payload_shape=tuple(hidden_states.shape),
                     cosine_similarity=cos_sim,
                     latency_ms=latency_ms,
+                    effective_rank=eff_rank,
                 )
             )
         logger.debug(
@@ -361,6 +378,90 @@ class UniversalLatentSpace:
         }
         logger.debug("Transfer quality for '%s': %s", agent_id, metrics)
         return metrics
+
+    def compute_information_metrics(
+        self,
+        agent_id: str,
+        hidden_states: Tensor,
+    ) -> Dict[str, float]:
+        """Compute information-theoretic quality metrics for a single agent's hub mapping.
+
+        Supplements the cosine-only roundtrip check with effective rank (a proxy
+        for information preservation) and an HSIC-based MI proxy between original
+        and reconstructed states.
+
+        Args:
+            agent_id: Registered agent identifier.
+            hidden_states: Sample hidden states, shape (B, hidden_dim).
+
+        Returns:
+            Dict with ``effective_rank``, ``norm_ratio``, ``hsic_mi_proxy``,
+            ``cosine_similarity``, and ``mse``.
+        """
+        self._require_agent(agent_id)
+        with torch.no_grad():
+            x = hidden_states.to(self.device).float()
+            u = self.encode(agent_id, x)
+            recon = self.decode(agent_id, u)
+
+            cos_sim = float(F.cosine_similarity(x, recon, dim=-1).mean().item())
+            mse = float(F.mse_loss(recon, x).item())
+            norm_ratio = float((recon.norm(dim=-1) / (x.norm(dim=-1) + 1e-8)).mean().item())
+
+            # Effective rank of hub vectors
+            try:
+                sv = torch.linalg.svdvals(u)
+                sv_norm = sv / (sv.sum() + 1e-12)
+                h = -(sv_norm * (sv_norm + 1e-12).log()).sum().item()
+                eff_rank = float(torch.exp(torch.tensor(h)).item())
+            except Exception:
+                eff_rank = float("nan")
+
+            # HSIC-based MI proxy (linear kernel, O(B^2))
+            try:
+                B = x.shape[0]
+                H = torch.eye(B, device=x.device) - torch.ones(B, B, device=x.device) / B
+                Kx = x @ x.T
+                Kr = recon @ recon.T
+                hsic = float(torch.trace(Kx @ H @ Kr @ H).item()) / max((B - 1) ** 2, 1)
+            except Exception:
+                hsic = float("nan")
+
+        metrics = {
+            "effective_rank": eff_rank,
+            "norm_ratio": norm_ratio,
+            "hsic_mi_proxy": hsic,
+            "cosine_similarity": cos_sim,
+            "mse": mse,
+        }
+        logger.debug("Information metrics for '%s': %s", agent_id, metrics)
+        return metrics
+
+    @staticmethod
+    def align_ridge(
+        source_states: Tensor,
+        target_states: Tensor,
+        alpha: float = 1e-4,
+    ) -> Tensor:
+        """Closed-form affine ridge alignment (O(N) hub maps, like VW).
+
+        Computes the least-squares affine map W* = (S^T S + αI)^{-1} S^T T
+        and returns W* @ source_states^T.  Useful as an alternative to
+        learned MLP adapters when anchor data is available.
+
+        Args:
+            source_states: Source embeddings, shape (N, D_src).
+            target_states: Target embeddings, shape (N, D_tgt).
+            alpha: Ridge regularization coefficient.
+
+        Returns:
+            Aligned source tensor of shape (N, D_tgt).
+        """
+        S = source_states.float()
+        T = target_states.float()
+        I = torch.eye(S.shape[1], device=S.device) * alpha
+        W = torch.linalg.solve(S.T @ S + I, S.T @ T)  # (D_src, D_tgt)
+        return S @ W
 
     # ------------------------------------------------------------------
     # History & persistence

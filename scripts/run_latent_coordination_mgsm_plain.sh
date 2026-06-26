@@ -7,6 +7,7 @@ MAX_EXAMPLES="${MAX_EXAMPLES:-1}"
 DEVICE="${DEVICE:-cuda:0}"
 DTYPE="${DTYPE:-float16}"
 HIDDEN_DIM="${HIDDEN_DIM:-2560}"
+UNIVERSAL_DIM="${UNIVERSAL_DIM:-256}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-1024}"
 TRANSLATION_MAX_NEW_TOKENS="${TRANSLATION_MAX_NEW_TOKENS:-512}"
 MODE="${MODE:-reasoning_only}"
@@ -31,6 +32,7 @@ echo "  max examples: ${MAX_EXAMPLES}"
 echo "  device      : ${DEVICE}"
 echo "  dtype       : ${DTYPE}"
 echo "  hidden dim  : ${HIDDEN_DIM}"
+echo "  universal   : ${UNIVERSAL_DIM}"
 echo "  max tokens  : ${MAX_NEW_TOKENS}"
 echo "  trans tokens: ${TRANSLATION_MAX_NEW_TOKENS}"
 echo "  mode        : ${MODE}"
@@ -66,6 +68,7 @@ python scripts/run_latent_coordination_mgsm_plain.py \
   --device "${DEVICE}" \
   --dtype "${DTYPE}" \
   --hidden_dim "${HIDDEN_DIM}" \
+  --universal_dim "${UNIVERSAL_DIM}" \
   --max_new_tokens "${MAX_NEW_TOKENS}" \
   --translation_max_new_tokens "${TRANSLATION_MAX_NEW_TOKENS}" \
   --mode "${MODE}" \

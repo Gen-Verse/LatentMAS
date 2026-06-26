@@ -24,6 +24,8 @@ for path in (REPO_ROOT, SRC_ROOT):
 from data import load_mgsm  # noqa: E402
 from latent_coordination.agents.base_agent import AgentConfig, AgentTask  # noqa: E402
 from latent_coordination.agents.specialized_agents import ReasoningAgent, TranslationAgent  # noqa: E402
+from latent_coordination.latent_space.universal_space import UniversalLatentSpace  # noqa: E402
+from latent_coordination.orchestration.router import AdaptiveOrchestrator, RoutingPlan  # noqa: E402
 from utils import extract_gsm8k_answer, normalize_answer  # noqa: E402
 
 
@@ -205,6 +207,69 @@ def run_translate_reason(
     }
 
 
+def run_orchestrated_translate_reason_latent(
+    translator: TranslationAgent,
+    reasoner: ReasoningAgent,
+    item: Dict,
+    args: argparse.Namespace,
+) -> Dict:
+    """Run the intended orchestrator path: original query + context + latent transfer."""
+    target_language = item["lang"] if args.translation_target_language == "same" else args.translation_target_language
+    router = AdaptiveOrchestrator(device=args.device, router_type="kmeans")
+    router.register_agent(translator)
+    router.register_agent(reasoner)
+    universal_space = UniversalLatentSpace(
+        universal_dim=args.universal_dim,
+        device=args.device,
+    )
+    task = AgentTask(
+        task_id=f"mgsm_{item['lang']}_{item['idx']}_orchestrated",
+        query=item["question"],
+        context=args.context,
+        target_language=target_language,
+    )
+    routing_plan = RoutingPlan(
+        task_id=task.task_id,
+        selected_agents=[translator.agent_id, reasoner.agent_id],
+        execution_order=[translator.agent_id, reasoner.agent_id],
+        estimated_cost=2.0,
+        routing_confidence=1.0,
+    )
+    result = router.execute(task, routing_plan, universal_space)
+
+    translation = result.agent_responses[0] if result.agent_responses else None
+    reasoning = result.agent_responses[-1] if result.agent_responses else None
+    final_text = result.final_output
+    pred, ok = score_text(final_text, item["gold"])
+    first_text = translation.output_text if translation is not None else ""
+    first_pred, first_ok = score_text(first_text, item["gold"])
+    return {
+        "lang": item["lang"],
+        "idx": item["idx"],
+        "mode": args.mode,
+        "correct": ok,
+        "prediction": pred,
+        "gold": normalize_answer(item["gold"]),
+        "first_pass_correct": first_ok,
+        "first_pass_prediction": first_pred,
+        "question": item["question"],
+        "raw_prediction": final_text,
+        "first_pass_output": first_text,
+        "translated_question": "",
+        "translation_output": first_text,
+        "used_second_pass": True,
+        "used_translation": True,
+        "used_translation_latent": True,
+        "first_elapsed_ms": translation.elapsed_ms if translation is not None else 0.0,
+        "translation_elapsed_ms": translation.elapsed_ms if translation is not None else 0.0,
+        "final_elapsed_ms": reasoning.elapsed_ms if reasoning is not None else 0.0,
+        "orchestrator_elapsed_ms": result.total_elapsed_ms,
+        "communication_cost_tokens": result.communication_cost_tokens,
+        "communication_cost_latent": result.communication_cost_latent,
+        "routing_order": "->".join(routing_plan.execution_order),
+    }
+
+
 def write_csv(path: Path, rows: List[Dict]) -> None:
     if not rows:
         return
@@ -228,11 +293,18 @@ def main() -> None:
     parser.add_argument("--reasoning_layer", type=int, default=-2)
     parser.add_argument("--translation_layer", type=int, default=-1)
     parser.add_argument("--n_reasoning_components", type=int, default=16)
+    parser.add_argument("--universal_dim", type=int, default=256)
     parser.add_argument("--load_in_8bit", action="store_true")
     parser.add_argument("--load_in_4bit", action="store_true")
     parser.add_argument(
         "--mode",
-        choices=["reasoning_only", "reasoning_latent_2pass", "translate_reason", "translate_reason_latent"],
+        choices=[
+            "reasoning_only",
+            "reasoning_latent_2pass",
+            "translate_reason",
+            "translate_reason_latent",
+            "orchestrated_translate_reason_latent",
+        ],
         default="reasoning_only",
     )
     parser.add_argument("--pass_text_context", action="store_true")
@@ -255,7 +327,15 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     reasoner = make_reasoning_agent(args)
-    translator = make_translation_agent(args) if args.mode in {"translate_reason", "translate_reason_latent"} else None
+    translator = (
+        make_translation_agent(args)
+        if args.mode in {
+            "translate_reason",
+            "translate_reason_latent",
+            "orchestrated_translate_reason_latent",
+        }
+        else None
+    )
     rows: List[Dict] = []
 
     for lang in langs:
@@ -266,6 +346,9 @@ def main() -> None:
                 row = run_reasoning_only(reasoner, item, args)
             elif args.mode == "reasoning_latent_2pass":
                 row = run_reasoning_latent_2pass(reasoner, item, args)
+            elif args.mode == "orchestrated_translate_reason_latent":
+                assert translator is not None
+                row = run_orchestrated_translate_reason_latent(translator, reasoner, item, args)
             else:
                 assert translator is not None
                 row = run_translate_reason(translator, reasoner, item, args)
@@ -290,6 +373,7 @@ def main() -> None:
         "max_new_tokens": args.max_new_tokens,
         "translation_max_new_tokens": args.translation_max_new_tokens,
         "translation_target_language": args.translation_target_language,
+        "universal_dim": args.universal_dim,
         "device": args.device,
         "dtype": args.dtype,
     }

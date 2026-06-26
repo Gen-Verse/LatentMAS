@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List
@@ -37,6 +38,18 @@ def iter_examples(lang: str, max_examples: int) -> Iterable[Dict]:
         row["idx"] = idx
         row["lang"] = lang
         yield row
+
+
+_MGSM_CACHE: Dict[str, List[Dict]] = {}
+
+
+def get_mgsm_item(lang: str, idx: int) -> Dict:
+    if lang not in _MGSM_CACHE:
+        _MGSM_CACHE[lang] = [dict(item) for item in load_mgsm(split="test", lang=lang)]
+    item = dict(_MGSM_CACHE[lang][idx])
+    item["idx"] = idx
+    item["lang"] = lang
+    return item
 
 
 def make_reasoning_agent(args: argparse.Namespace) -> ReasoningAgent:
@@ -72,13 +85,224 @@ def make_translation_agent(args: argparse.Namespace) -> TranslationAgent:
         load_in_4bit=args.load_in_4bit,
         trust_remote_code=True,
     )
-    return TranslationAgent(cfg, steer_layer=args.translation_layer)
+    return TranslationAgent(
+        cfg,
+        steer_layer=args.translation_layer,
+        sfr_threshold=args.sfr_threshold,
+    )
 
 
 def score_text(text: str, gold: str) -> tuple[str | None, bool]:
     pred = normalize_answer(extract_gsm8k_answer(text))
     gold_norm = normalize_answer(gold)
     return pred, bool(pred and gold_norm and pred == gold_norm)
+
+
+def numbers_in_text(text: str) -> List[str]:
+    return re.findall(r"(?<![\w.])-?\d+(?:\.\d+)?", text or "")
+
+
+def translation_looks_contaminated(source: str, translation: str, args: argparse.Namespace) -> tuple[bool, str]:
+    """Detect translator outputs that are likely to poison downstream reasoning."""
+    text = translation or ""
+    lowered = text.lower()
+    if not text.strip():
+        return True, "empty_translation"
+
+    answer_markers = [
+        "answer is",
+        "the answer",
+        "final answer",
+        "therefore",
+        "so,",
+        "so ",
+        "boxed",
+        "\\boxed",
+        "উত্তর",
+        "respuesta",
+        "réponse",
+        "ответ",
+        "答案",
+        "答え",
+        "జవాబు",
+        "คำตอบ",
+    ]
+    if any(marker in lowered for marker in answer_markers):
+        return True, "answer_or_reasoning_marker"
+
+    source_numbers = set(numbers_in_text(source))
+    output_numbers = set(numbers_in_text(text))
+    extra_numbers = output_numbers - source_numbers
+    if len(extra_numbers) > args.max_extra_translation_numbers:
+        return True, f"extra_numbers={sorted(extra_numbers)}"
+
+    source_len = max(len(source), 1)
+    if len(text) > source_len * args.max_translation_length_ratio:
+        return True, "too_long"
+
+    return False, "ok"
+
+
+def run_translator_latent_only(
+    translator: TranslationAgent,
+    reasoner: ReasoningAgent,
+    item: Dict,
+    args: argparse.Namespace,
+    *,
+    gated: bool = False,
+) -> Dict:
+    target_language = item["lang"] if args.translation_target_language == "same" else args.translation_target_language
+    translation_task = AgentTask(
+        task_id=f"mgsm_{item['lang']}_{item['idx']}_translate_latent",
+        query=item["question"],
+        target_language=target_language,
+    )
+    translation = translator.process(translation_task)
+    contaminated, gate_reason = translation_looks_contaminated(
+        item["question"],
+        translation.output_text,
+        args,
+    )
+    use_latent = not (gated and contaminated)
+    reasoning_task = AgentTask(
+        task_id=f"mgsm_{item['lang']}_{item['idx']}_latent_reason",
+        query=item["question"],
+        context=args.context,
+        latent_state=translation.latent_state if use_latent else None,
+        target_language=target_language,
+    )
+    reasoning = reasoner.process(reasoning_task)
+    first_pred, first_ok = score_text(translation.output_text, item["gold"])
+    pred, ok = score_text(reasoning.output_text, item["gold"])
+    return {
+        "lang": item["lang"],
+        "idx": item["idx"],
+        "mode": args.mode,
+        "correct": ok,
+        "prediction": pred,
+        "gold": normalize_answer(item["gold"]),
+        "first_pass_correct": first_ok,
+        "first_pass_prediction": first_pred,
+        "question": item["question"],
+        "raw_prediction": reasoning.output_text,
+        "first_pass_output": translation.output_text,
+        "translated_question": "",
+        "translation_output": translation.output_text,
+        "used_second_pass": True,
+        "used_translation": True,
+        "used_translation_latent": use_latent,
+        "translation_contaminated": contaminated,
+        "translation_gate_reason": gate_reason,
+        "first_elapsed_ms": translation.elapsed_ms,
+        "translation_elapsed_ms": translation.elapsed_ms,
+        "final_elapsed_ms": reasoning.elapsed_ms,
+    }
+
+
+def run_latent_consensus_verify(
+    translator: TranslationAgent,
+    reasoner: ReasoningAgent,
+    item: Dict,
+    args: argparse.Namespace,
+) -> Dict:
+    """Compare baseline and latent-only candidates, then verify disagreements."""
+    baseline = run_reasoning_only(reasoner, item, args)
+    latent = run_translator_latent_only(translator, reasoner, item, args, gated=True)
+    baseline_pred = baseline["prediction"]
+    latent_pred = latent["prediction"]
+
+    if baseline_pred == latent_pred or not latent_pred:
+        chosen = baseline
+        verifier_text = ""
+        verifier_pred = baseline_pred
+        used_verifier = False
+    else:
+        target_language = item["lang"] if args.translation_target_language == "same" else args.translation_target_language
+        verifier_prompt = (
+            "Solve the original math problem and choose the correct candidate answer. "
+            "Ignore any candidate that comes from a mistranslation or changes the story. "
+            "Output only a short solution and a boxed final answer.\n\n"
+            f"Original problem:\n{item['question']}\n\n"
+            f"Candidate A: {baseline_pred}\n"
+            f"Candidate B: {latent_pred}\n"
+        )
+        verifier_task = AgentTask(
+            task_id=f"mgsm_{item['lang']}_{item['idx']}_latent_verify",
+            query=verifier_prompt,
+            target_language=target_language,
+        )
+        verifier = reasoner.process(verifier_task)
+        verifier_text = verifier.output_text
+        verifier_pred, _ = score_text(verifier_text, item["gold"])
+        chosen = dict(latent if verifier_pred == latent_pred else baseline)
+        chosen["raw_prediction"] = verifier_text if verifier_pred else chosen["raw_prediction"]
+        chosen["prediction"] = verifier_pred or chosen["prediction"]
+        chosen["correct"] = bool(verifier_pred and verifier_pred == normalize_answer(item["gold"]))
+        used_verifier = True
+
+    chosen = dict(chosen)
+    chosen["mode"] = args.mode
+    chosen["baseline_prediction"] = baseline_pred
+    chosen["latent_prediction"] = latent_pred
+    chosen["verifier_prediction"] = verifier_pred
+    chosen["used_verifier"] = used_verifier
+    chosen["verifier_output"] = verifier_text
+    chosen["translation_contaminated"] = latent.get("translation_contaminated", "")
+    chosen["translation_gate_reason"] = latent.get("translation_gate_reason", "")
+    return chosen
+
+
+def run_english_anchor_latent(
+    translator: TranslationAgent,
+    reasoner: ReasoningAgent,
+    item: Dict,
+    args: argparse.Namespace,
+) -> Dict:
+    """Inject hidden states from the parallel English MGSM question, not English text."""
+    target_language = item["lang"] if args.translation_target_language == "same" else args.translation_target_language
+    anchor_item = get_mgsm_item(args.anchor_lang, item["idx"])
+    t0 = translator._start_timer()
+    translator._ensure_model_loaded()
+    hs = translator.extract_hidden_states(
+        anchor_item["question"],
+        layer_ids=[args.translation_layer],
+    )
+    anchor_latent = hs.get(args.translation_layer)
+    anchor_elapsed = translator._stop_timer(t0)
+    reasoning_task = AgentTask(
+        task_id=f"mgsm_{item['lang']}_{item['idx']}_english_anchor_latent",
+        query=item["question"],
+        context=args.context,
+        latent_state=anchor_latent,
+        target_language=target_language,
+    )
+    reasoning = reasoner.process(reasoning_task)
+    pred, ok = score_text(reasoning.output_text, item["gold"])
+    return {
+        "lang": item["lang"],
+        "idx": item["idx"],
+        "mode": args.mode,
+        "correct": ok,
+        "prediction": pred,
+        "gold": normalize_answer(item["gold"]),
+        "first_pass_correct": "",
+        "first_pass_prediction": "",
+        "question": item["question"],
+        "raw_prediction": reasoning.output_text,
+        "first_pass_output": "",
+        "translated_question": "",
+        "translation_output": "",
+        "anchor_lang": args.anchor_lang,
+        "anchor_question": anchor_item["question"],
+        "used_second_pass": True,
+        "used_translation": False,
+        "used_translation_latent": True,
+        "translation_contaminated": False,
+        "translation_gate_reason": "english_anchor_hidden_state",
+        "first_elapsed_ms": anchor_elapsed,
+        "translation_elapsed_ms": anchor_elapsed,
+        "final_elapsed_ms": reasoning.elapsed_ms,
+    }
 
 
 def run_reasoning_only(reasoner: ReasoningAgent, item: Dict, args: argparse.Namespace) -> Dict:
@@ -294,6 +518,10 @@ def main() -> None:
     parser.add_argument("--translation_layer", type=int, default=-1)
     parser.add_argument("--n_reasoning_components", type=int, default=16)
     parser.add_argument("--universal_dim", type=int, default=256)
+    parser.add_argument("--sfr_threshold", type=float, default=0.3)
+    parser.add_argument("--max_extra_translation_numbers", type=int, default=0)
+    parser.add_argument("--max_translation_length_ratio", type=float, default=2.5)
+    parser.add_argument("--anchor_lang", default="en")
     parser.add_argument("--load_in_8bit", action="store_true")
     parser.add_argument("--load_in_4bit", action="store_true")
     parser.add_argument(
@@ -304,6 +532,10 @@ def main() -> None:
             "translate_reason",
             "translate_reason_latent",
             "orchestrated_translate_reason_latent",
+            "translator_latent_only",
+            "translator_latent_only_gated",
+            "latent_consensus_verify",
+            "english_anchor_latent",
         ],
         default="reasoning_only",
     )
@@ -333,6 +565,10 @@ def main() -> None:
             "translate_reason",
             "translate_reason_latent",
             "orchestrated_translate_reason_latent",
+            "translator_latent_only",
+            "translator_latent_only_gated",
+            "latent_consensus_verify",
+            "english_anchor_latent",
         }
         else None
     )
@@ -349,6 +585,18 @@ def main() -> None:
             elif args.mode == "orchestrated_translate_reason_latent":
                 assert translator is not None
                 row = run_orchestrated_translate_reason_latent(translator, reasoner, item, args)
+            elif args.mode == "translator_latent_only":
+                assert translator is not None
+                row = run_translator_latent_only(translator, reasoner, item, args, gated=False)
+            elif args.mode == "translator_latent_only_gated":
+                assert translator is not None
+                row = run_translator_latent_only(translator, reasoner, item, args, gated=True)
+            elif args.mode == "latent_consensus_verify":
+                assert translator is not None
+                row = run_latent_consensus_verify(translator, reasoner, item, args)
+            elif args.mode == "english_anchor_latent":
+                assert translator is not None
+                row = run_english_anchor_latent(translator, reasoner, item, args)
             else:
                 assert translator is not None
                 row = run_translate_reason(translator, reasoner, item, args)
@@ -374,6 +622,10 @@ def main() -> None:
         "translation_max_new_tokens": args.translation_max_new_tokens,
         "translation_target_language": args.translation_target_language,
         "universal_dim": args.universal_dim,
+        "sfr_threshold": args.sfr_threshold,
+        "max_extra_translation_numbers": args.max_extra_translation_numbers,
+        "max_translation_length_ratio": args.max_translation_length_ratio,
+        "anchor_lang": args.anchor_lang,
         "device": args.device,
         "dtype": args.dtype,
     }

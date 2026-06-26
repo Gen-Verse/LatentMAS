@@ -12,6 +12,10 @@ MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-1024}"
 TRANSLATION_MAX_NEW_TOKENS="${TRANSLATION_MAX_NEW_TOKENS:-512}"
 MODE="${MODE:-reasoning_only}"
 TRANSLATION_TARGET_LANGUAGE="${TRANSLATION_TARGET_LANGUAGE:-same}"
+ANCHOR_LANG="${ANCHOR_LANG:-en}"
+SFR_THRESHOLD="${SFR_THRESHOLD:-0.3}"
+MAX_EXTRA_TRANSLATION_NUMBERS="${MAX_EXTRA_TRANSLATION_NUMBERS:-0}"
+MAX_TRANSLATION_LENGTH_RATIO="${MAX_TRANSLATION_LENGTH_RATIO:-2.5}"
 INCLUDE_ORIGINAL_QUESTION="${INCLUDE_ORIGINAL_QUESTION:-0}"
 PASS_TEXT_CONTEXT="${PASS_TEXT_CONTEXT:-0}"
 LOAD_IN_8BIT="${LOAD_IN_8BIT:-0}"
@@ -37,6 +41,10 @@ echo "  max tokens  : ${MAX_NEW_TOKENS}"
 echo "  trans tokens: ${TRANSLATION_MAX_NEW_TOKENS}"
 echo "  mode        : ${MODE}"
 echo "  trans target: ${TRANSLATION_TARGET_LANGUAGE}"
+echo "  anchor lang : ${ANCHOR_LANG}"
+echo "  sfr thresh  : ${SFR_THRESHOLD}"
+echo "  extra nums  : ${MAX_EXTRA_TRANSLATION_NUMBERS}"
+echo "  len ratio   : ${MAX_TRANSLATION_LENGTH_RATIO}"
 echo "  orig context: ${INCLUDE_ORIGINAL_QUESTION}"
 echo "  pass text   : ${PASS_TEXT_CONTEXT}"
 echo "  load 8bit   : ${LOAD_IN_8BIT}"
@@ -73,5 +81,9 @@ python scripts/run_latent_coordination_mgsm_plain.py \
   --translation_max_new_tokens "${TRANSLATION_MAX_NEW_TOKENS}" \
   --mode "${MODE}" \
   --translation_target_language "${TRANSLATION_TARGET_LANGUAGE}" \
+  --anchor_lang "${ANCHOR_LANG}" \
+  --sfr_threshold "${SFR_THRESHOLD}" \
+  --max_extra_translation_numbers "${MAX_EXTRA_TRANSLATION_NUMBERS}" \
+  --max_translation_length_ratio "${MAX_TRANSLATION_LENGTH_RATIO}" \
   --out_dir "${OUT_DIR}" \
   "${ARGS[@]}"

@@ -1,0 +1,24 @@
+{
+  "model_name": "Qwen/Qwen3-4B",
+  "mode": "orchestrated_translate_reason_latent",
+  "languages": [
+    "bn",
+    "de",
+    "en",
+    "es",
+    "fr",
+    "ja",
+    "ru",
+    "sw",
+    "te",
+    "th",
+    "zh"
+  ],
+  "max_examples": 1,
+  "max_new_tokens": 1024,
+  "translation_max_new_tokens": 512,
+  "translation_target_language": "same",
+  "universal_dim": 256,
+  "device": "cuda:0",
+  "dtype": "float16"
+}

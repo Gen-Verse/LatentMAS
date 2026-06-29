@@ -4,10 +4,13 @@ set -euo pipefail
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen3-4B}"
 LANGUAGES="${LANGUAGES:-bn,de,en,es,fr,ja,ru,sw,te,th,zh}"
 MAX_EXAMPLES="${MAX_EXAMPLES:-1}"
+START_IDX="${START_IDX:-0}"
 DEVICE="${DEVICE:-cuda:0}"
 DTYPE="${DTYPE:-float16}"
 HIDDEN_DIM="${HIDDEN_DIM:-2560}"
 UNIVERSAL_DIM="${UNIVERSAL_DIM:-256}"
+ULS_ADAPTER_DIR="${ULS_ADAPTER_DIR:-}"
+USE_ULS_TRANSFER="${USE_ULS_TRANSFER:-0}"
 MAX_NEW_TOKENS="${MAX_NEW_TOKENS:-1024}"
 TRANSLATION_MAX_NEW_TOKENS="${TRANSLATION_MAX_NEW_TOKENS:-512}"
 MODE="${MODE:-reasoning_only}"
@@ -33,10 +36,13 @@ echo "================ latent_coordination MGSM plain ================"
 echo "  model       : ${MODEL_NAME}"
 echo "  languages   : ${LANGUAGES}"
 echo "  max examples: ${MAX_EXAMPLES}"
+echo "  start idx   : ${START_IDX}"
 echo "  device      : ${DEVICE}"
 echo "  dtype       : ${DTYPE}"
 echo "  hidden dim  : ${HIDDEN_DIM}"
 echo "  universal   : ${UNIVERSAL_DIM}"
+echo "  ULS adapters: ${ULS_ADAPTER_DIR:-<none>}"
+echo "  ULS transfer: ${USE_ULS_TRANSFER}"
 echo "  max tokens  : ${MAX_NEW_TOKENS}"
 echo "  trans tokens: ${TRANSLATION_MAX_NEW_TOKENS}"
 echo "  mode        : ${MODE}"
@@ -68,11 +74,18 @@ fi
 if [[ "${LOAD_IN_4BIT}" == "1" || "${LOAD_IN_4BIT}" == "true" ]]; then
   ARGS+=(--load_in_4bit)
 fi
+if [[ -n "${ULS_ADAPTER_DIR}" ]]; then
+  ARGS+=(--uls_adapter_dir "${ULS_ADAPTER_DIR}")
+fi
+if [[ "${USE_ULS_TRANSFER}" == "1" || "${USE_ULS_TRANSFER}" == "true" ]]; then
+  ARGS+=(--use_uls_transfer)
+fi
 
 python scripts/run_latent_coordination_mgsm_plain.py \
   --model_name "${MODEL_NAME}" \
   --languages "${LANGUAGES}" \
   --max_examples "${MAX_EXAMPLES}" \
+  --start_idx "${START_IDX}" \
   --device "${DEVICE}" \
   --dtype "${DTYPE}" \
   --hidden_dim "${HIDDEN_DIM}" \

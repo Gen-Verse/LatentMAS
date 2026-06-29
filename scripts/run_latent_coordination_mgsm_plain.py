@@ -30,13 +30,17 @@ from latent_coordination.orchestration.router import AdaptiveOrchestrator, Routi
 from utils import extract_gsm8k_answer, normalize_answer  # noqa: E402
 
 
-def iter_examples(lang: str, max_examples: int) -> Iterable[Dict]:
+def iter_examples(lang: str, max_examples: int, start_idx: int = 0) -> Iterable[Dict]:
+    yielded = 0
     for idx, item in enumerate(load_mgsm(split="test", lang=lang)):
-        if max_examples >= 0 and idx >= max_examples:
+        if idx < start_idx:
+            continue
+        if max_examples >= 0 and yielded >= max_examples:
             break
         row = dict(item)
         row["idx"] = idx
         row["lang"] = lang
+        yielded += 1
         yield row
 
 
@@ -90,6 +94,27 @@ def make_translation_agent(args: argparse.Namespace) -> TranslationAgent:
         steer_layer=args.translation_layer,
         sfr_threshold=args.sfr_threshold,
     )
+
+
+def get_universal_space(
+    args: argparse.Namespace,
+    translator: TranslationAgent,
+    reasoner: ReasoningAgent,
+) -> UniversalLatentSpace:
+    cached = getattr(args, "_universal_space", None)
+    if cached is not None:
+        return cached
+
+    universal_space = UniversalLatentSpace(
+        universal_dim=args.universal_dim,
+        device=args.device,
+    )
+    universal_space.register_agent(translator.agent_id, hidden_dim=args.hidden_dim)
+    universal_space.register_agent(reasoner.agent_id, hidden_dim=args.hidden_dim)
+    if args.uls_adapter_dir:
+        universal_space.load_adapters(args.uls_adapter_dir)
+    args._universal_space = universal_space
+    return universal_space
 
 
 def score_text(text: str, gold: str) -> tuple[str | None, bool]:
@@ -164,11 +189,22 @@ def run_translator_latent_only(
         args,
     )
     use_latent = not (gated and contaminated)
+    latent_state = translation.latent_state if use_latent else None
+    used_uls_adapter = False
+    if latent_state is not None and (args.use_uls_transfer or args.uls_adapter_dir):
+        universal_space = get_universal_space(args, translator, reasoner)
+        latent_state = universal_space.transfer(
+            translator.agent_id,
+            reasoner.agent_id,
+            latent_state,
+            norm_match=True,
+        )
+        used_uls_adapter = True
     reasoning_task = AgentTask(
         task_id=f"mgsm_{item['lang']}_{item['idx']}_latent_reason",
         query=item["question"],
         context=args.context,
-        latent_state=translation.latent_state if use_latent else None,
+        latent_state=latent_state,
         target_language=target_language,
     )
     reasoning = reasoner.process(reasoning_task)
@@ -191,6 +227,9 @@ def run_translator_latent_only(
         "used_second_pass": True,
         "used_translation": True,
         "used_translation_latent": use_latent,
+        "used_uls_adapter": used_uls_adapter,
+        "used_uls_transfer": bool(latent_state is not None and (args.use_uls_transfer or args.uls_adapter_dir)),
+        "uls_adapter_dir": args.uls_adapter_dir,
         "translation_contaminated": contaminated,
         "translation_gate_reason": gate_reason,
         "first_elapsed_ms": translation.elapsed_ms,
@@ -442,10 +481,7 @@ def run_orchestrated_translate_reason_latent(
     router = AdaptiveOrchestrator(device=args.device, router_type="kmeans")
     router.register_agent(translator)
     router.register_agent(reasoner)
-    universal_space = UniversalLatentSpace(
-        universal_dim=args.universal_dim,
-        device=args.device,
-    )
+    universal_space = get_universal_space(args, translator, reasoner)
     task = AgentTask(
         task_id=f"mgsm_{item['lang']}_{item['idx']}_orchestrated",
         query=item["question"],
@@ -484,6 +520,8 @@ def run_orchestrated_translate_reason_latent(
         "used_second_pass": True,
         "used_translation": True,
         "used_translation_latent": True,
+        "used_uls_adapter": bool(args.uls_adapter_dir),
+        "uls_adapter_dir": args.uls_adapter_dir,
         "first_elapsed_ms": translation.elapsed_ms if translation is not None else 0.0,
         "translation_elapsed_ms": translation.elapsed_ms if translation is not None else 0.0,
         "final_elapsed_ms": reasoning.elapsed_ms if reasoning is not None else 0.0,
@@ -509,6 +547,7 @@ def main() -> None:
     parser.add_argument("--model_name", default="Qwen/Qwen3-4B")
     parser.add_argument("--languages", default="bn,de,en,es,fr,ja,ru,sw,te,th,zh")
     parser.add_argument("--max_examples", type=int, default=1)
+    parser.add_argument("--start_idx", type=int, default=0)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--dtype", default="float16")
     parser.add_argument("--hidden_dim", type=int, default=2560)
@@ -518,6 +557,16 @@ def main() -> None:
     parser.add_argument("--translation_layer", type=int, default=-1)
     parser.add_argument("--n_reasoning_components", type=int, default=16)
     parser.add_argument("--universal_dim", type=int, default=256)
+    parser.add_argument(
+        "--uls_adapter_dir",
+        default="",
+        help="Optional directory containing UniversalLatentSpace agent adapter checkpoints.",
+    )
+    parser.add_argument(
+        "--use_uls_transfer",
+        action="store_true",
+        help="Route direct translator->reasoner latent handoff through ULS even without trained adapters.",
+    )
     parser.add_argument("--sfr_threshold", type=float, default=0.3)
     parser.add_argument("--max_extra_translation_numbers", type=int, default=0)
     parser.add_argument("--max_translation_length_ratio", type=float, default=2.5)
@@ -576,7 +625,7 @@ def main() -> None:
 
     for lang in langs:
         print(f"=== {lang} ===", flush=True)
-        for item in iter_examples(lang, args.max_examples):
+        for item in iter_examples(lang, args.max_examples, args.start_idx):
             print(f"  idx={item['idx']}", flush=True)
             if args.mode == "reasoning_only":
                 row = run_reasoning_only(reasoner, item, args)
@@ -618,10 +667,13 @@ def main() -> None:
         "mode": args.mode,
         "languages": langs,
         "max_examples": args.max_examples,
+        "start_idx": args.start_idx,
         "max_new_tokens": args.max_new_tokens,
         "translation_max_new_tokens": args.translation_max_new_tokens,
         "translation_target_language": args.translation_target_language,
         "universal_dim": args.universal_dim,
+        "uls_adapter_dir": args.uls_adapter_dir,
+        "use_uls_transfer": args.use_uls_transfer,
         "sfr_threshold": args.sfr_threshold,
         "max_extra_translation_numbers": args.max_extra_translation_numbers,
         "max_translation_length_ratio": args.max_translation_length_ratio,

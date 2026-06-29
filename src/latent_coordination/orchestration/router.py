@@ -291,10 +291,12 @@ class AdaptiveOrchestrator:
             if current_state is not None:
                 # Map sender/receiver agent IDs for latent adapter transfer
                 sender_id = routing_plan.execution_order[idx-1] if idx > 0 else "source"
-                universal_space.register_agent(sender_id, current_state.shape[-1])
+                if not universal_space.is_registered(sender_id):
+                    universal_space.register_agent(sender_id, current_state.shape[-1])
                 # Use actual hidden state dim (shape[-1]) as ground truth for receiver
                 # to avoid VLM config mismatches (text_config.hidden_size vs top-level)
-                universal_space.register_agent(agent_id, current_state.shape[-1])
+                if not universal_space.is_registered(agent_id):
+                    universal_space.register_agent(agent_id, current_state.shape[-1])
 
                 # Transfer state via universal hub
                 current_state = universal_space.transfer(sender_id, agent_id, current_state)

@@ -58,17 +58,17 @@ class SafetyVerdict:
 
 
 # ---------------------------------------------------------------------------
-# Soft imports for mechanistic_disentangle (gracefully degrade if not available)
+# Soft imports for latent_coordination (gracefully degrade if not available)
 # ---------------------------------------------------------------------------
 
 def _try_import_steerer():
     """Attempt to import LatentSteerer from the sibling Mechanistic Disentanglement package."""
     try:
-        from mechanistic_disentangle.steering.latent_steerer import LatentSteerer  # type: ignore
+        from latent_coordination.steering.latent_steerer import LatentSteerer  # type: ignore
         return LatentSteerer
     except ImportError:
         logger.warning(
-            "mechanistic_disentangle.steering.LatentSteerer not found. "
+            "latent_coordination.steering.LatentSteerer not found. "
             "TranslationAgent will fall back to standard generation."
         )
         return None
@@ -77,11 +77,11 @@ def _try_import_steerer():
 def _try_import_svd_decomposer():
     """Attempt to import SVDSubspaceDecomposer from the sibling Mechanistic Disentanglement package."""
     try:
-        from mechanistic_disentangle.geometry.svd_decomposer import SVDSubspaceDecomposer  # type: ignore
+        from latent_coordination.geometry.svd_decomposer import SVDSubspaceDecomposer  # type: ignore
         return SVDSubspaceDecomposer
     except ImportError:
         logger.warning(
-            "mechanistic_disentangle.geometry.SVDSubspaceDecomposer not found. "
+            "latent_coordination.geometry.SVDSubspaceDecomposer not found. "
             "ReasoningAgent will fall back to standard generation."
         )
         return None

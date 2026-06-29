@@ -1,7 +1,7 @@
 """
 Shared transformer layer resolution utilities.
 
-All three projects (surgical_mrre, mechanistic_disentangle, latent_coordination) need to
+All three projects (mrre_drift, latent_coordination, latent_coordination) need to
 locate the list of transformer decoder blocks inside a HuggingFace model.
 This module centralises that logic so divergence cannot occur.
 """

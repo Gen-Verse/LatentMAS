@@ -1,6 +1,6 @@
 """
 Shared model loader — single source of truth for HuggingFace model/tokenizer loading
-across all three projects (surgical_mrre, mechanistic_disentangle, latent_coordination).
+across all three projects (mrre_drift, latent_coordination, latent_coordination).
 
 Design goals
 ------------
@@ -66,18 +66,23 @@ def _supports_bf16(device: Optional[str]) -> bool:
 
 
 def resolve_dtype(dtype: str, device: Optional[str]) -> torch.dtype:
-    """Map a dtype string to ``torch.dtype``, downgrading bf16 on pre-Ampere GPUs."""
+    """Map a dtype string to ``torch.dtype``.
+
+    G2 compliance: raises ``AssertionError`` if bfloat16 is requested on a
+    pre-Ampere GPU (compute capability < 8.0, e.g. V100).  This is a hard
+    guard — callers must explicitly request float16 on V100 hardware.
+    """
     resolved = _DTYPE_MAP.get(str(dtype).lower())
     if resolved is None:
         raise ValueError(
             f"Unknown dtype '{dtype}'. Valid: {sorted(set(_DTYPE_MAP))}."
         )
     if resolved is torch.bfloat16 and not _supports_bf16(device):
-        logger.warning(
-            "bfloat16 requested but GPU compute capability < 8.0 (e.g. V100). "
-            "Falling back to float16."
+        raise AssertionError(
+            f"bfloat16 requested on device '{device}' but GPU compute capability "
+            "< 8.0 (V100 is 7.0 — no native bf16 support). "
+            "Set dtype='float16' in your config. (G2 hardware envelope guard)"
         )
-        resolved = torch.float16
     return resolved
 
 

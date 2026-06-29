@@ -146,7 +146,7 @@ class MultiAgentBenchmarkRunner:
         metrics = {
             "accuracy": self._compute_accuracy(responses, tasks),
             "latency_ms": latency_ms,
-            "token_cost": float(sum(len(r.output_text.split()) for r in responses)),
+            "token_cost": float(sum(len(r.output_text.split()) for r in responses)) / max(len(tasks), 1),
             "safety_rate": self._compute_safety_rate(responses),
         }
         return metrics, responses

@@ -1,4 +1,6 @@
-"""Visualization helper modules."""
+"""Parallelism and device management utilities for the Mechanistic Disentanglement package, delegating to the shared layer."""
+
+from shared.parallelism import DeviceManager, ParallelRunner, batch_generator
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

@@ -1,24 +1,18 @@
 """
-Latent Coordination Paper: Multi-Agent Planning with Latent Coordination,
-Transferable Topology, and Adaptive Orchestration.
-
-This package implements:
-    - CVAE Graph Topology Prior (TopoPrior)
-    - Hub-and-Spoke Universal Latent Space (L-MAS)
-    - Text-free latent state transfer between heterogeneous agents
-    - Adaptive orchestration with latent intent centroids (TRIAD-TS style)
-    - Dynamic sub-task routing to specialized agents
+Latent Coordination Package (Unified): Multi-Agent Planning with Latent Coordination,
+Transferable Topology, Adaptive Orchestration, and Cross-Lingual Latent Steering.
 """
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
 __credits__ = ["Himon Thakur"]
 __license__ = "Apache 2.0"
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
+# Latent Coordination & Reasoning exports
 from latent_coordination.topology.cvae_prior import CVAETopologyPrior
 from latent_coordination.latent_space.universal_space import UniversalLatentSpace
 from latent_coordination.orchestration.router import AdaptiveOrchestrator, AttentionRouter
@@ -34,6 +28,14 @@ from latent_coordination.baselines.gdesigner_mas_router import (
     MasRouterBaseline,
     MasRouterConfig,
 )
+
+# Latent Steering / Mechanistic Disentanglement exports
+from latent_coordination.geometry.svd_decomposer import SVDSubspaceDecomposer
+from latent_coordination.geometry.isomorphism import GeometricIsomorphismAnalyzer
+from latent_coordination.steering.gaussian_scheduler import GaussianDepthScheduler
+from latent_coordination.steering.magnitude_norm import MagnitudeNormalizer
+from latent_coordination.steering.latent_steerer import LatentSteerer
+from latent_coordination.eval.script_fidelity import ScriptFidelityEvaluator
 
 __all__ = [
     "CVAETopologyPrior",
@@ -52,4 +54,11 @@ __all__ = [
     "GDesignerBaseline",
     "MasRouterBaseline",
     "MasRouterConfig",
+    
+    "SVDSubspaceDecomposer",
+    "GeometricIsomorphismAnalyzer",
+    "GaussianDepthScheduler",
+    "MagnitudeNormalizer",
+    "LatentSteerer",
+    "ScriptFidelityEvaluator",
 ]

@@ -1,4 +1,6 @@
-"""Visualization helper modules."""
+"""Checkpointing utilities for the Mechanistic Disentanglement package, delegating to the shared layer."""
+
+from shared.checkpointing import CheckpointManager
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

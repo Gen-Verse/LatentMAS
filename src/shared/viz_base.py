@@ -1,7 +1,7 @@
 """
 Shared visualisation base utilities: style setup, figure saving, colour palettes.
 
-All plot modules in mechanistic_disentangle.viz and latent_coordination.viz import from here
+All plot modules in latent_coordination.viz and latent_coordination.viz import from here
 to maintain consistent aesthetics across all paper figures.
 """
 

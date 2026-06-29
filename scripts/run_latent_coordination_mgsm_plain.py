@@ -10,11 +10,14 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import re
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, List
+
+import torch
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = REPO_ROOT / "src"
@@ -27,6 +30,7 @@ from latent_coordination.agents.base_agent import AgentConfig, AgentTask  # noqa
 from latent_coordination.agents.specialized_agents import ReasoningAgent, TranslationAgent  # noqa: E402
 from latent_coordination.latent_space.universal_space import UniversalLatentSpace  # noqa: E402
 from latent_coordination.orchestration.router import AdaptiveOrchestrator, RoutingPlan  # noqa: E402
+from latent_coordination.topology.cvae_prior import CVAETopologyPrior  # noqa: E402
 from utils import extract_gsm8k_answer, normalize_answer  # noqa: E402
 
 
@@ -54,6 +58,16 @@ def get_mgsm_item(lang: str, idx: int) -> Dict:
     item["idx"] = idx
     item["lang"] = lang
     return item
+
+
+def stable_tokenize_for_cvae(text: str, lang: str, *, vocab_size: int, max_seq_len: int) -> torch.Tensor:
+    tokens = []
+    for word in f"lang_{lang} {text}".lower().split()[:max_seq_len]:
+        h = (int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16) % (vocab_size - 1)) + 1
+        tokens.append(h)
+    while len(tokens) < max_seq_len:
+        tokens.append(0)
+    return torch.tensor(tokens, dtype=torch.long)
 
 
 def make_reasoning_agent(args: argparse.Namespace) -> ReasoningAgent:
@@ -115,6 +129,52 @@ def get_universal_space(
         universal_space.load_adapters(args.uls_adapter_dir)
     args._universal_space = universal_space
     return universal_space
+
+
+def get_cvae_router(args: argparse.Namespace):
+    cached = getattr(args, "_cvae_router", None)
+    if cached is not None:
+        return cached
+    if not args.cvae_router_path:
+        raise ValueError("--cvae_router_path is required for MODE=cvae_adaptive.")
+
+    payload = torch.load(args.cvae_router_path, map_location=args.device)
+    cfg = payload["config"]
+    cfg.device = args.device
+    model = CVAETopologyPrior(cfg).to(args.device)
+    model.load_state_dict(payload["model_state_dict"])
+    model.eval()
+    threshold = payload.get("threshold", 0.5) if args.cvae_threshold is None else args.cvae_threshold
+    router = {
+        "model": model,
+        "threshold": float(threshold),
+        "vocab_size": int(payload.get("vocab_size", 8192)),
+        "max_seq_len": int(payload.get("max_seq_len", 64)),
+        "z_dim": int(cfg.z_dim),
+    }
+    args._cvae_router = router
+    return router
+
+
+def predict_cvae_route(args: argparse.Namespace, item: Dict) -> Dict:
+    router = get_cvae_router(args)
+    model = router["model"]
+    q = stable_tokenize_for_cvae(
+        item["question"],
+        item["lang"],
+        vocab_size=router["vocab_size"],
+        max_seq_len=router["max_seq_len"],
+    ).unsqueeze(0).to(args.device)
+    with torch.no_grad():
+        z = torch.zeros(1, router["z_dim"], device=args.device)
+        probs = model.decode(z, q)
+        latent_edge_prob = float(probs[0, 0, 1].item())
+    route = "latent" if latent_edge_prob >= router["threshold"] else "reasoning"
+    return {
+        "route": route,
+        "latent_edge_prob": latent_edge_prob,
+        "threshold": router["threshold"],
+    }
 
 
 def score_text(text: str, gold: str) -> tuple[str | None, bool]:
@@ -289,6 +349,30 @@ def run_latent_consensus_verify(
     chosen["translation_contaminated"] = latent.get("translation_contaminated", "")
     chosen["translation_gate_reason"] = latent.get("translation_gate_reason", "")
     return chosen
+
+
+def run_cvae_adaptive(
+    translator: TranslationAgent,
+    reasoner: ReasoningAgent,
+    item: Dict,
+    args: argparse.Namespace,
+) -> Dict:
+    decision = predict_cvae_route(args, item)
+    if decision["route"] == "latent":
+        row = run_translator_latent_only(translator, reasoner, item, args, gated=True)
+    else:
+        row = run_reasoning_only(reasoner, item, args)
+        row["used_translation_latent"] = False
+        row["used_uls_adapter"] = False
+        row["used_uls_transfer"] = False
+        row["uls_adapter_dir"] = args.uls_adapter_dir
+    row = dict(row)
+    row["mode"] = args.mode
+    row["cvae_route"] = decision["route"]
+    row["cvae_latent_edge_prob"] = decision["latent_edge_prob"]
+    row["cvae_threshold"] = decision["threshold"]
+    row["cvae_router_path"] = args.cvae_router_path
+    return row
 
 
 def run_english_anchor_latent(
@@ -571,6 +655,8 @@ def main() -> None:
     parser.add_argument("--max_extra_translation_numbers", type=int, default=0)
     parser.add_argument("--max_translation_length_ratio", type=float, default=2.5)
     parser.add_argument("--anchor_lang", default="en")
+    parser.add_argument("--cvae_router_path", default="")
+    parser.add_argument("--cvae_threshold", type=float, default=None)
     parser.add_argument("--load_in_8bit", action="store_true")
     parser.add_argument("--load_in_4bit", action="store_true")
     parser.add_argument(
@@ -585,6 +671,7 @@ def main() -> None:
             "translator_latent_only_gated",
             "latent_consensus_verify",
             "english_anchor_latent",
+            "cvae_adaptive",
         ],
         default="reasoning_only",
     )
@@ -618,6 +705,7 @@ def main() -> None:
             "translator_latent_only_gated",
             "latent_consensus_verify",
             "english_anchor_latent",
+            "cvae_adaptive",
         }
         else None
     )
@@ -643,6 +731,9 @@ def main() -> None:
             elif args.mode == "latent_consensus_verify":
                 assert translator is not None
                 row = run_latent_consensus_verify(translator, reasoner, item, args)
+            elif args.mode == "cvae_adaptive":
+                assert translator is not None
+                row = run_cvae_adaptive(translator, reasoner, item, args)
             elif args.mode == "english_anchor_latent":
                 assert translator is not None
                 row = run_english_anchor_latent(translator, reasoner, item, args)
@@ -678,6 +769,8 @@ def main() -> None:
         "max_extra_translation_numbers": args.max_extra_translation_numbers,
         "max_translation_length_ratio": args.max_translation_length_ratio,
         "anchor_lang": args.anchor_lang,
+        "cvae_router_path": args.cvae_router_path,
+        "cvae_threshold": args.cvae_threshold,
         "device": args.device,
         "dtype": args.dtype,
     }

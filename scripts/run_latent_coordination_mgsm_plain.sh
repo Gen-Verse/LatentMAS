@@ -16,6 +16,8 @@ TRANSLATION_MAX_NEW_TOKENS="${TRANSLATION_MAX_NEW_TOKENS:-512}"
 MODE="${MODE:-reasoning_only}"
 TRANSLATION_TARGET_LANGUAGE="${TRANSLATION_TARGET_LANGUAGE:-same}"
 ANCHOR_LANG="${ANCHOR_LANG:-en}"
+CVAE_ROUTER_PATH="${CVAE_ROUTER_PATH:-}"
+CVAE_THRESHOLD="${CVAE_THRESHOLD:-}"
 SFR_THRESHOLD="${SFR_THRESHOLD:-0.3}"
 MAX_EXTRA_TRANSLATION_NUMBERS="${MAX_EXTRA_TRANSLATION_NUMBERS:-0}"
 MAX_TRANSLATION_LENGTH_RATIO="${MAX_TRANSLATION_LENGTH_RATIO:-2.5}"
@@ -48,6 +50,8 @@ echo "  trans tokens: ${TRANSLATION_MAX_NEW_TOKENS}"
 echo "  mode        : ${MODE}"
 echo "  trans target: ${TRANSLATION_TARGET_LANGUAGE}"
 echo "  anchor lang : ${ANCHOR_LANG}"
+echo "  CVAE router : ${CVAE_ROUTER_PATH:-<none>}"
+echo "  CVAE thresh : ${CVAE_THRESHOLD:-<checkpoint>}"
 echo "  sfr thresh  : ${SFR_THRESHOLD}"
 echo "  extra nums  : ${MAX_EXTRA_TRANSLATION_NUMBERS}"
 echo "  len ratio   : ${MAX_TRANSLATION_LENGTH_RATIO}"
@@ -79,6 +83,12 @@ if [[ -n "${ULS_ADAPTER_DIR}" ]]; then
 fi
 if [[ "${USE_ULS_TRANSFER}" == "1" || "${USE_ULS_TRANSFER}" == "true" ]]; then
   ARGS+=(--use_uls_transfer)
+fi
+if [[ -n "${CVAE_ROUTER_PATH}" ]]; then
+  ARGS+=(--cvae_router_path "${CVAE_ROUTER_PATH}")
+fi
+if [[ -n "${CVAE_THRESHOLD}" ]]; then
+  ARGS+=(--cvae_threshold "${CVAE_THRESHOLD}")
 fi
 
 python scripts/run_latent_coordination_mgsm_plain.py \

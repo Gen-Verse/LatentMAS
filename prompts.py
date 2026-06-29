@@ -55,6 +55,8 @@ _THINK_PREFILLS = {
 def _get_lang_from_args(args):
     if not args:
         return "en"
+    if getattr(args, "plain_prompts", False):
+        return "__plain__"
     return getattr(args, "mgsm_lang", None) or getattr(args, "lang", None) or "en"
 
 

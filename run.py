@@ -115,6 +115,15 @@ def main():
     parser.add_argument("--generate_bs", type=int, default=20, help="Batch size for generation")
     parser.add_argument("--text_mas_context_length", type=int, default=-1, help="TextMAS context length limit")
     parser.add_argument("--think", action="store_true", help="Manually add think token in the prompt for LatentMAS")
+    parser.add_argument(
+        "--plain_prompts",
+        action="store_true",
+        help=(
+            "Use the original English prompt templates without prompt translations, "
+            "target-language directives, or localized think prefill. The MGSM question "
+            "language is still controlled by --mgsm_lang."
+        ),
+    )
     parser.add_argument("--latent_space_realign", action="store_true")
     parser.add_argument(
         "--language_reasoning_disentangle",

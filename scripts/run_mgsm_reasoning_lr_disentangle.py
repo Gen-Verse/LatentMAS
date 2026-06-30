@@ -139,14 +139,33 @@ def last_token_hidden_by_layer(
 ) -> Dict[int, torch.Tensor]:
     agent._ensure_model_loaded()
     inputs = agent._tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024).to(agent._device)
-    with torch.no_grad():
-        outputs = agent._model(**inputs, output_hidden_states=True)
-    hidden = outputs.hidden_states
-    # hidden[0] is embeddings; transformer block k corresponds to hidden[k + 1].
-    result = {}
+    blocks = model_layers(agent._model)
+    captured: Dict[int, torch.Tensor] = {}
+    handles = []
+
+    def make_capture_hook(layer: int):
+        def hook(_module, _module_inputs, output):
+            hidden = output[0] if isinstance(output, tuple) else output
+            captured[layer] = hidden[:, -1, :].detach().float().cpu().squeeze(0)
+
+        return hook
+
     for layer in layers:
-        result[layer] = hidden[layer + 1][:, -1, :].detach().float().cpu().squeeze(0)
-    return result
+        handles.append(blocks[layer].register_forward_hook(make_capture_hook(layer)))
+
+    with torch.no_grad():
+        try:
+            agent._model(**inputs, output_hidden_states=False, use_cache=False)
+        finally:
+            for handle in handles:
+                handle.remove()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
+    missing = [layer for layer in layers if layer not in captured]
+    if missing:
+        raise RuntimeError(f"Failed to capture hidden states for layers: {missing}")
+    return captured
 
 
 def fit_language_subspace(

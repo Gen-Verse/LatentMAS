@@ -58,10 +58,21 @@ def _detect_script_ratio(text: str, target_lang: str) -> float:
     if not text:
         return 0.0
     pattern = SCRIPT_BLOCKS.get(target_lang)
+    
     if not pattern:
-        # Fallback if no specific script block is registered for the lang
-        return 1.0
-        
+        # Fallback to semantic language identification for Latin-script / untracked languages
+        try:
+            import langid
+            # Set target lang as constrained language to boost speed and reliability if needed, 
+            # but classify freely to detect English bleed (IFL).
+            lang, _ = langid.classify(text)
+            return 1.0 if lang == target_lang else 0.0
+        except ImportError as exc:
+            raise ImportError(
+                f"Language '{target_lang}' requires semantic detection, but 'langid' is missing. "
+                "Install with: pip install langid"
+            ) from exc
+            
     tokens = text.split()
     if not tokens:
         return 0.0

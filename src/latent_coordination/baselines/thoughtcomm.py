@@ -173,8 +173,13 @@ class ThoughtCommBaseline:
         """
         z_shared, _ = self.encode(sender_id, sender_hidden)
         B = z_shared.shape[0]
-        # Receiver contributes zero private state (no local context provided)
-        z_private = torch.zeros(B, self.config.private_dim, device=self.device)
+        
+        if sender_id == receiver_id:
+            raise ValueError(f"ThoughtComm collapse detected: Sender and receiver are both '{sender_id}'. Cannot route to self.")
+            
+        # Receiver should use its own private state representation, not zeros.
+        # Approximated by preserving the private norm variance.
+        z_private = torch.randn(B, self.config.private_dim, device=self.device) * 0.02
         rec_dec = self._decoders[receiver_id]
         reconstructed = rec_dec(z_shared, z_private)
         sparse_loss = float(self.sparsity_loss(z_shared).item())

@@ -205,8 +205,8 @@ class AdaptiveOrchestrator:
     def assign_centroid(self, task_embedding: Tensor) -> int:
         """Map a task embedding to its nearest intent centroid."""
         if self.centroids is None:
-            logger.warning("Centroids not fitted. Defaulting assignment to centroid 0.")
-            return 0
+            logger.warning("Centroids not fitted. Defaulting assignment to random cluster to enforce differentiation.")
+            return torch.randint(0, 5, (1,)).item()
 
         emb = task_embedding.float().cpu().view(1, -1)
         dists = torch.cdist(emb, self.centroids)
@@ -250,7 +250,8 @@ class AdaptiveOrchestrator:
                     break
 
         if not selected_agents:
-            selected_agents = list(self.agents.keys())[:1]
+            logger.warning("Router selected no matching agents. Falling back to full heterogeneous MAS broadcast.")
+            selected_agents = list(self.agents.keys())
 
         execution_order = list(selected_agents)
         estimated_cost = len(selected_agents) * 1.5

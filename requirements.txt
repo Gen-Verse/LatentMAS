@@ -4,3 +4,4 @@ numpy
 tqdm
 accelerate==1.14.0
 datasets
+langid

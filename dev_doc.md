@@ -62,7 +62,6 @@ The evaluation suite allows for a fully composable (Model $\times$ Benchmark $\t
 *   **Adversarial / Regional Checks:** `SingleAgentOneFlow`, `SeaHelmBaseline`, `SeaLionBaseline`, `XQuadBaseline`, `VisionWormholeBaseline`, etc.
 
 ---
-
 ## 4. Rigorous Metrics & Zero-Tolerance Mocks
 
 To guarantee mathematical integrity, the repository strictly enforces a **fail-fast, zero-fallback policy**. 

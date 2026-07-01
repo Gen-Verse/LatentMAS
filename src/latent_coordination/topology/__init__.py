@@ -1,7 +1,6 @@
 """Graph topology priors: CVAE encoder-decoder for transferable collaboration graphs."""
 
-
-from latent_coordination.topology.cvae_prior import CVAETopologyPrior, TopologyDataset, TrainingConfig
+from .cvae_prior import GeometryConditionedCVAEPrior
 from latent_coordination.topology.graph_utils import GraphUtils, GraphProperties
 
 __author__ = "Himon Thakur"
@@ -14,9 +13,7 @@ __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
 __all__ = [
-    "CVAETopologyPrior",
-    "TopologyDataset",
-    "TrainingConfig",
+    "GeometryConditionedCVAEPrior",
     "GraphUtils",
     "GraphProperties",
 ]

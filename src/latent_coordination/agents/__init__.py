@@ -8,6 +8,7 @@ from latent_coordination.agents.specialized_agents import (
     SafetyAgent,
     SafetyVerdict,
 )
+from latent_coordination.agents.single_agent_baseline import SingleAgentOneFlow
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

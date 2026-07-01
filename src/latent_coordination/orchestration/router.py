@@ -12,7 +12,8 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from latent_coordination.agents.base_agent import BaseAgent, AgentResponse, AgentTask
-from latent_coordination.latent_space.universal_space import UniversalLatentSpace
+from latent_coordination.topology.cvae_prior import GeometryConditionedCVAEPrior
+from latent_coordination.latent_space.universal_space import UniversalLatentHub
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
@@ -274,7 +275,7 @@ class AdaptiveOrchestrator:
         self,
         task: AgentTask,
         routing_plan: RoutingPlan,
-        universal_space: UniversalLatentSpace,
+        universal_space: UniversalLatentHub,
     ) -> OrchestrationResult:
         """Execute the routing plan sequentially using text-free latent state transfers."""
         start_time = time.time()
@@ -333,7 +334,7 @@ class AdaptiveOrchestrator:
         self,
         task: AgentTask,
         agents: List[BaseAgent],
-        universal_space: UniversalLatentSpace,
+        universal_space: UniversalLatentHub,
     ) -> Dict[str, float]:
         """Measure real communication overhead: Token-based vs Latent-based modes.
 

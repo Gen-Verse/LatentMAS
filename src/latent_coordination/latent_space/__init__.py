@@ -1,7 +1,7 @@
 """Universal Latent Space: Hub-and-spoke latent state transfer between heterogeneous agents."""
 
-
-from latent_coordination.latent_space.universal_space import UniversalLatentSpace
+from .universal_space import UniversalLatentHub
+from .recursive_core import RecursiveLatentCore
 from latent_coordination.latent_space.adapter import LatentAdapter, AdapterConfig, AdapterBank
 
 __author__ = "Himon Thakur"
@@ -14,7 +14,8 @@ __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
 __all__ = [
-    "UniversalLatentSpace",
+    "UniversalLatentHub",
+    "RecursiveLatentCore",
     "LatentAdapter",
     "AdapterConfig",
     "AdapterBank",

@@ -2,10 +2,20 @@
 
 
 from latent_coordination.eval.efficiency_metrics import EfficiencyAnalyzer, AblationReport
-from latent_coordination.eval.benchmark_runner import MultiAgentBenchmarkRunner, MultiAgentBenchmarkReport
-from latent_coordination.eval.steering_benchmark import BenchmarkRunner, BenchmarkReport
-from latent_coordination.eval.script_fidelity import ScriptFidelityEvaluator
-from latent_coordination.eval.metrics import MetricsComputer
+from .adversarial import BoundedLatentAttacker, LatentGateDefense
+from .information_theory import InfoTheoreticAnalyzer
+from .script_fidelity import ScriptFidelityEvaluator
+from .multi_agent_runner import MultiAgentRunner
+from .verification_probe import QueryReconstructionProbe
+
+__all__ = [
+    "BoundedLatentAttacker",
+    "LatentGateDefense",
+    "InfoTheoreticAnalyzer",
+    "ScriptFidelityEvaluator",
+    "MultiAgentRunner",
+    "QueryReconstructionProbe"
+]
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

@@ -253,12 +253,17 @@ def run_reasoning(
     item: Dict,
     subspace: LanguageSubspace,
     alpha: float,
+    seed: int | None = None,
 ) -> Dict:
     task = AgentTask(
         task_id=f"mgsm_{item['lang']}_{item['idx']}_lr_alpha_{alpha}",
         query=item["question"],
         target_language=item["lang"],
     )
+    if seed is not None:
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
     with language_projection_hooks(agent, subspace, alpha):
         response = agent.process(task)
     pred, ok = score_text(response.output_text, item["gold"])
@@ -333,6 +338,7 @@ def main() -> None:
     parser.add_argument("--layers", default="12-26")
     parser.add_argument("--n_components", type=int, default=8)
     parser.add_argument("--alphas", default="0,0.025,0.05,0.1,0.2")
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out_dir", default="results/mgsm_reasoning_lr_disentangle")
     parser.add_argument("--run_name", default=None)
     args = parser.parse_args()
@@ -374,7 +380,13 @@ def main() -> None:
         for item in iter_mgsm_slice(lang, args.calibration_start_idx, args.calibration_examples):
             print(f"  calib idx={item['idx']}", flush=True)
             for alpha in alphas:
-                row = run_reasoning(agent, item, subspace, alpha)
+                row = run_reasoning(
+                    agent,
+                    item,
+                    subspace,
+                    alpha,
+                    seed=args.seed + item["idx"],
+                )
                 row["split"] = "calibration"
                 row["chosen_alpha"] = ""
                 calibration_rows.append(row)
@@ -396,13 +408,34 @@ def main() -> None:
         print(f"=== evaluating {lang} chosen_alpha={chosen_alpha} ===", flush=True)
         for item in iter_mgsm_slice(lang, args.eval_start_idx, args.eval_examples):
             print(f"  eval idx={item['idx']}", flush=True)
-            for label, alpha in (("baseline", 0.0), ("calibrated_lr_disentangle", chosen_alpha)):
-                row = run_reasoning(agent, item, subspace, alpha)
-                row["split"] = "eval"
-                row["condition"] = label
-                row["chosen_alpha"] = chosen_alpha
-                evaluation_rows.append(row)
-                write_csv(out_dir / "eval_examples.partial.csv", evaluation_rows)
+            baseline_row = run_reasoning(
+                agent,
+                item,
+                subspace,
+                0.0,
+                seed=args.seed + item["idx"],
+            )
+            baseline_row["split"] = "eval"
+            baseline_row["condition"] = "baseline"
+            baseline_row["chosen_alpha"] = chosen_alpha
+            evaluation_rows.append(baseline_row)
+
+            if chosen_alpha == 0.0:
+                calibrated_row = dict(baseline_row)
+                calibrated_row["condition"] = "calibrated_lr_disentangle"
+            else:
+                calibrated_row = run_reasoning(
+                    agent,
+                    item,
+                    subspace,
+                    chosen_alpha,
+                    seed=args.seed + item["idx"],
+                )
+                calibrated_row["split"] = "eval"
+                calibrated_row["condition"] = "calibrated_lr_disentangle"
+                calibrated_row["chosen_alpha"] = chosen_alpha
+            evaluation_rows.append(calibrated_row)
+            write_csv(out_dir / "eval_examples.partial.csv", evaluation_rows)
 
     write_csv(out_dir / "calibration_examples.csv", calibration_rows)
     write_csv(out_dir / "eval_examples.csv", evaluation_rows)
@@ -422,6 +455,7 @@ def main() -> None:
         "resolved_layers": layers,
         "n_components": args.n_components,
         "alphas": alphas,
+        "seed": args.seed,
         "device": args.device,
         "dtype": args.dtype,
         "training_free": True,

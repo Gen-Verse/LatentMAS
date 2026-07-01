@@ -1,6 +1,6 @@
-transformers
+transformers==5.12.1
 torch
 numpy
 tqdm
-accelerate
+accelerate==1.14.0
 datasets

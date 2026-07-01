@@ -12,14 +12,6 @@ Concrete specialisations (TranslationAgent, ReasoningAgent, SafetyAgent)
 override the abstract ``process()`` method.
 """
 
-__author__ = "Himon Thakur"
-__copyright__ = "Copyright 2026, Himon Thakur"
-__credits__ = ["Himon Thakur"]
-__license__ = "Apache 2.0"
-__version__ = "0.1.0"
-__maintainer__ = "Himon Thakur"
-__email__ = "hthakur@uccs.edu"
-__status__ = "prototype"
 
 import asyncio
 import logging
@@ -30,6 +22,15 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 
 import torch
 from torch import Tensor
+
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
 
 logger = logging.getLogger(__name__)
 

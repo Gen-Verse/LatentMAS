@@ -6,11 +6,8 @@ from utils import extract_gold, normalize_answer
 
 
 def load_gsm8k(split: str = "test", cache_dir: Optional[str] = None) -> Iterable[Dict]:
-    #Prefer the namespaced id on HF (openai/gsm8k); fall back to plain 'gsm8k'
-    try:
-        ds = load_dataset("openai/gsm8k", "main", split=split, cache_dir=cache_dir)
-    except Exception:
-        ds = load_dataset("gsm8k", "main", split=split, cache_dir=cache_dir)
+    # Prefer the namespaced id on HF (openai/gsm8k). Fail fast if not available.
+    ds = load_dataset("openai/gsm8k", "main", split=split, cache_dir=cache_dir)
     for item in ds:
         question = item["question"].strip()
         solution = item["answer"]
@@ -208,9 +205,10 @@ __copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
 __credits__ = ["Lineesha Kamana", "Himon Thakur"]
 __license__ = "Apache 2.0"
 __version__ = "0.0.1"
-__maintainer__ = "Lineesha Kamana"
-__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
 
 def load_medqa(split=None, subset=None, cache_dir=None):
 
@@ -289,3 +287,107 @@ def load_mgsm(
             "gold": gold,
         }
 
+
+def load_mgsm_pro(split: str = "test", lang: str = "en", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    if lang is None:
+        raise ValueError("lang must be provided")
+    ds = load_dataset("McGill-NLP/mgsm-pro", lang, split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("question", "")).strip()
+        solution = str(item.get("answer", "")).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_belebele(split: str = "test", lang: str = "eng_Latn", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("facebook/belebele", lang, split=split, cache_dir=cache_dir)
+    for item in ds:
+        question_text = str(item.get("question", "")).strip()
+        flores_passage = str(item.get("flores_passage", "")).strip()
+        mcqa = f"{flores_passage}\n{question_text}\n1: {item.get('mc1_targets')}\n2: {item.get('mc2_targets')}\n3: {item.get('mc3_targets')}\n4: {item.get('mc4_targets')}"
+        solution = str(item.get("correct_answer_num", "")).strip()
+        gold = normalize_answer(solution)
+        yield {"question": mcqa, "solution": solution, "gold": gold}
+
+
+def load_sea_helm(subset: str = "NLU-Belebele-MCQA", split: str = "test", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset(f"aisingapore/sea-helm-{subset}", split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("question", item.get("prompt", ""))).strip()
+        solution = str(item.get("answer", item.get("label", ""))).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_mathmist(split: str = "test", subset: str = "default", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("mahbubhimel/MathMist", subset, split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("question", "")).strip()
+        solution = str(item.get("answer", "")).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_banglamath(split: str = "train", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("kawchar85/Bangla-Math", split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("question", "")).strip()
+        solution = str(item.get("answer", "")).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_multilingual_reasoning_gym(split: str = "train", lang: str = "en", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("MauroPello/multilingual-reasoning-gym-sft", lang, split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("instruction", item.get("question", ""))).strip()
+        solution = str(item.get("output", item.get("answer", ""))).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_seabench(split: str = "test", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("SeaLLMs/SeaBench-Audio", split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("question", "")).strip()
+        solution = str(item.get("answer", "")).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_multichallenge(split: str = "test", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("ScaleAI/MultiChallenge", split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("prompt", "")).strip()
+        solution = str(item.get("response", "")).strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_xquad(split: str = "validation", lang: str = "en", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("xquad", f"xquad.{lang}", split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("context", "")) + "\n" + str(item.get("question", "")).strip()
+        answers = item.get("answers", {}).get("text", [])
+        solution = str(answers[0] if answers else "").strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_mlqa(split: str = "test", lang: str = "en", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("mlqa", f"mlqa.{lang}.{lang}", split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("context", "")) + "\n" + str(item.get("question", "")).strip()
+        answers = item.get("answers", {}).get("text", [])
+        solution = str(answers[0] if answers else "").strip()
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}
+
+
+def load_flores_plus(split: str = "dev", lang: str = "eng_Latn", cache_dir: Optional[str] = None) -> Iterable[Dict]:
+    ds = load_dataset("facebook/flores", lang, split=split, cache_dir=cache_dir)
+    for item in ds:
+        question = str(item.get("sentence", "")).strip()
+        solution = str(item.get("sentence", "")).strip()  # Depends on task (usually translation requires parallel target)
+        gold = normalize_answer(solution)
+        yield {"question": question, "solution": solution, "gold": gold}

@@ -3,14 +3,6 @@ Latent Coordination Package (Unified): Multi-Agent Planning with Latent Coordina
 Transferable Topology, Adaptive Orchestration, and Cross-Lingual Latent Steering.
 """
 
-__author__ = "Himon Thakur"
-__copyright__ = "Copyright 2026, Himon Thakur"
-__credits__ = ["Himon Thakur"]
-__license__ = "Apache 2.0"
-__version__ = "0.0.1"
-__maintainer__ = "Himon Thakur"
-__email__ = "hthakur@uccs.edu"
-__status__ = "prototype"
 
 # Latent Coordination & Reasoning exports
 from latent_coordination.topology.cvae_prior import CVAETopologyPrior
@@ -36,6 +28,15 @@ from latent_coordination.steering.gaussian_scheduler import GaussianDepthSchedul
 from latent_coordination.steering.magnitude_norm import MagnitudeNormalizer
 from latent_coordination.steering.latent_steerer import LatentSteerer
 from latent_coordination.eval.script_fidelity import ScriptFidelityEvaluator
+
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
 
 __all__ = [
     "CVAETopologyPrior",

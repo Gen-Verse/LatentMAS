@@ -30,12 +30,17 @@ from shared.checkpointing import CheckpointManager
 from shared.logging_utils import setup_logging
 from shared.seeding import set_seed
 
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
+
 logger = logging.getLogger(__name__)
 
-__author__ = "Himon Thakur"
-__license__ = "Apache 2.0"
-__version__ = "0.1.0"
-__status__ = "prototype"
 
 STAGE_MAP = {
     "A": "Hidden-State Mapping (Logit Lens + CLAP → CollapseProfile)",

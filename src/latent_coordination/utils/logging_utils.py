@@ -13,6 +13,7 @@ __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
+
 def setup_logging(cfg: dict) -> logging.Logger:
     """Configure logging using project configuration dictionary."""
     log_cfg = cfg.get("logging", {})

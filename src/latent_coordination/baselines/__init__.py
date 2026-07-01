@@ -19,6 +19,27 @@ from latent_coordination.baselines.gdesigner_mas_router import (
     MasRouterBaseline,
     MasRouterConfig,
 )
+from latent_coordination.baselines.vision_wormhole import VisionWormholeBaseline
+from latent_coordination.baselines.regional_eval_baselines import (
+    SeaHelmBaseline,
+    SeaCrowdBaseline,
+    SeaEvalBaseline,
+    SeaLionBaseline,
+    SeaExamBaseline,
+    SeaBenchBaseline,
+    MultiChallengeBaseline,
+    XQuadBaseline,
+    MlqaBaseline,
+)
+
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
 
 __all__ = [
     "LatentMASBaseline",
@@ -29,4 +50,14 @@ __all__ = [
     "GDesignerBaseline",
     "MasRouterBaseline",
     "MasRouterConfig",
+    "VisionWormholeBaseline",
+    "SeaHelmBaseline",
+    "SeaCrowdBaseline",
+    "SeaEvalBaseline",
+    "SeaLionBaseline",
+    "SeaExamBaseline",
+    "SeaBenchBaseline",
+    "MultiChallengeBaseline",
+    "XQuadBaseline",
+    "MlqaBaseline",
 ]

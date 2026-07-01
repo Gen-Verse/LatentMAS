@@ -19,11 +19,11 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "transformers",
+    "transformers==5.12.1",
     "torch",
     "numpy",
     "tqdm",
-    "accelerate",
+    "accelerate==1.14.0",
     "datasets",
     "pandas",
     "matplotlib",
@@ -35,28 +35,28 @@ dependencies = [
 [project.optional-dependencies]
 # Fast fine-tuning / training (see training/ and configs/unsloth_train.yaml).
 unsloth = [
-    "unsloth",
+    "unsloth==2026.6.9",
     "trl",
     "peft",
-    "bitsandbytes",
+    "bitsandbytes==0.49.2",
     "pyyaml",
 ]
 # Fast GGUF inference backend (see --use_llamacpp).
 llamacpp = [
-    "llama-cpp-python",
+    "llama-cpp-python==0.3.32",
 ]
 # Fast inference backend already supported by the codebase.
 vllm = [
-    "vllm",
+    "vllm==0.24.0",
 ]
 all = [
-    "unsloth",
+    "unsloth==2026.6.9",
     "trl",
     "peft",
-    "bitsandbytes",
+    "bitsandbytes==0.49.2",
     "pyyaml",
-    "llama-cpp-python",
-    "vllm",
+    "llama-cpp-python==0.3.32",
+    "vllm==0.24.0",
 ]
 
 [tool.setuptools]

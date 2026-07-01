@@ -24,14 +24,18 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from compute_scan import run_compute_scan
+
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
 __credits__ = ["Himon Thakur"]
 __license__ = "Apache 2.0"
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
 
 # ---------------------------------------------------------------------------
 # Stage registry
@@ -304,6 +308,7 @@ def save_run_summary(summary: dict, output_dir: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
+    run_compute_scan(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "compute_scan.json"))
     args = parse_args()
 
     cfg = load_config(args.config)

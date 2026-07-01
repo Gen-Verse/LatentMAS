@@ -10,6 +10,15 @@ import pytest
 
 from shared.generation_backend import resolve_backend, vllm_supported
 
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
+
 
 def test_vllm_unsupported_without_install():
     # vLLM is not installed in the test env → never "supported", regardless of GPU.

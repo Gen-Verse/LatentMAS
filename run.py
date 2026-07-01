@@ -22,15 +22,17 @@ from methods.text_mas import TextMASMethod
 from models import ModelWrapper
 from utils import auto_device, set_seed
 import time
+from compute_scan import run_compute_scan
 
 __author__ = "Lineesha Kamana, Himon Thakur"
 __copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
 __credits__ = ["Lineesha Kamana", "Himon Thakur"]
 __license__ = "Apache 2.0"
 __version__ = "0.0.1"
-__maintainer__ = "Lineesha Kamana"
-__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
 
 
 def evaluate(preds: List[Dict]) -> Tuple[float, int]:
@@ -92,6 +94,7 @@ def process_batch(
 
 
 def main():
+    run_compute_scan("compute_scan.json")
     parser = argparse.ArgumentParser()
 
     # core args for experiments

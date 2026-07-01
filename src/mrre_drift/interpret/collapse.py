@@ -13,18 +13,19 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
 
-if TYPE_CHECKING:
-    from mrre_drift.interpret.craf import CRAFProfile
-    from mrre_drift.interpret.logit_lens import LogitLensScan
-
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
 __credits__ = ["Himon Thakur"]
 __license__ = "Apache 2.0"
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
+if TYPE_CHECKING:
+    from mrre_drift.interpret.craf import CRAFProfile
+    from mrre_drift.interpret.logit_lens import LogitLensScan
+
 
 
 @dataclass

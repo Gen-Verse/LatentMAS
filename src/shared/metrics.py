@@ -14,6 +14,15 @@ __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
 
+def compute_bleu(predictions: List[str], references: List[str]) -> float:
+    """Corpus BLEU for evaluating text generation and translation."""
+    try:
+        import sacrebleu
+        return sacrebleu.corpus_bleu(predictions, [references]).score
+    except ImportError as exc:
+        raise ImportError("BLEU evaluation requires the sacrebleu package. Install with: pip install sacrebleu") from exc
+
+
 def compute_chrf(predictions: List[str], references: List[str]) -> float:
     """chrF (Character n-gram F-score) for evaluating text generation and translation."""
     try:
@@ -38,6 +47,46 @@ def compute_comet(predictions: List[str], references: List[str], sources: List[s
     except ImportError as exc:
         raise ImportError(
             "COMET requires the unbabel-comet package and model weights. "
+            "Install with: pip install unbabel-comet"
+        ) from exc
+
+
+def compute_xcomet(predictions: List[str], references: List[str], sources: List[str]) -> float:
+    """xCOMET metric (reference-based) -- supersedes plain COMET as of 2025/2026,
+    best correlation with human judgment plus fine-grained error spans.
+    Checkpoint: Unbabel/XCOMET-XL (gated; requires accepting the license on HF).
+    """
+    logger.info("Computing xCOMET scores (Unbabel/XCOMET-XL) for evaluation.")
+    try:
+        from comet import download_model, load_from_checkpoint
+        model_path = download_model("Unbabel/XCOMET-XL")
+        model = load_from_checkpoint(model_path)
+        data = [{"src": src, "mt": mt, "ref": ref} for src, mt, ref in zip(sources, predictions, references)]
+        model_output = model.predict(data, batch_size=8, gpus=1 if torch.cuda.is_available() else 0)
+        return float(model_output.system_score)
+    except ImportError as exc:
+        raise ImportError(
+            "xCOMET requires the unbabel-comet package and model weights. "
+            "Install with: pip install unbabel-comet"
+        ) from exc
+
+
+def compute_cometkiwi(predictions: List[str], sources: List[str]) -> float:
+    """CometKiwi: reference-FREE translation quality estimation -- for generations with
+    no gold target translation available (e.g. most FLORES+ target-language outputs).
+    Checkpoint: Unbabel/wmt23-cometkiwi-da-xl (gated; requires accepting the license on HF).
+    """
+    logger.info("Computing CometKiwi QE scores (Unbabel/wmt23-cometkiwi-da-xl) for evaluation.")
+    try:
+        from comet import download_model, load_from_checkpoint
+        model_path = download_model("Unbabel/wmt23-cometkiwi-da-xl")
+        model = load_from_checkpoint(model_path)
+        data = [{"src": src, "mt": mt} for src, mt in zip(sources, predictions)]
+        model_output = model.predict(data, batch_size=8, gpus=1 if torch.cuda.is_available() else 0)
+        return float(model_output.system_score)
+    except ImportError as exc:
+        raise ImportError(
+            "CometKiwi requires the unbabel-comet package and model weights. "
             "Install with: pip install unbabel-comet"
         ) from exc
 

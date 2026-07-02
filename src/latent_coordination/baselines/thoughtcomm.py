@@ -11,7 +11,7 @@ to minimizing shared-thought entropy).  Full ThoughtComm includes nonparametric
 identifiability proofs and a recoverable topology; this baseline omits those
 and implements the core communication mechanism for empirical comparison.
 
-Key differences from our UniversalLatentSpace:
+Key differences from our UniversalLatentHub:
     • No inter-agent adapter training (shared/private split is per-agent).
     • Sparsity on the shared component (vs. dense hub vector).
     • Homogeneous-friendly but works across different hidden dims via projection.

@@ -470,3 +470,113 @@ class ScriptFidelityEvaluator:
         )
         logger.info(report.summary())
         return report
+
+
+# ---------------------------------------------------------------------------
+# Language Consistency (LC) — complements SFR for Latin-script target languages
+# ---------------------------------------------------------------------------
+
+# langid.py's supported ISO 639-1 set does not include Burmese ("my"); every other
+# target language used in this project (th, lo, km, am, sw, id, ms, vi) is covered.
+# Verified via langid.langid.LanguageIdentifier.from_modelstring(model).nb_classes.
+LC_UNSUPPORTED_LANGUAGES = frozenset({"my"})
+
+
+@dataclass
+class LCSample:
+    """Per-sample Language Consistency result."""
+    generated: str
+    target_language: str
+    detected_language: Optional[str]
+    is_consistent: Optional[bool]  # None when target_language is LC_UNSUPPORTED
+
+
+@dataclass
+class LCReport:
+    """Aggregated Language Consistency results over a batch of samples."""
+    samples: List[LCSample]
+    consistency_rate: float  # fraction of *scorable* samples where detected == target
+    n_scored: int
+    n_unscorable: int
+    per_language: Dict[str, float] = field(default_factory=dict)
+
+    def summary(self) -> str:
+        return (
+            f"LC Report\n"
+            f"  consistency rate : {self.consistency_rate:.4f}\n"
+            f"  n_scored         : {self.n_scored}\n"
+            f"  n_unscorable     : {self.n_unscorable} (e.g. Burmese, unsupported by langid)\n"
+            f"  per-language     : {self.per_language}"
+        )
+
+
+class LanguageConsistencyEvaluator:
+    """Response-level "is the whole generation actually in the target language?" check.
+
+    SFR is script-level (Unicode code-point ranges) and is therefore blind whenever the
+    target language shares a script with a distractor language -- most notably every
+    Latin-script target here (id, ms, sw, ceb, fil, vi): a fully-English response scores
+    a *high* SFR for those languages because English is also Latin-script. LC uses a
+    language-ID model (langid) on the whole response instead of a per-character script
+    check, so it can actually tell Swahili from English drift, at the cost of being a
+    coarser (whole-response, not per-character) signal.
+    """
+
+    def __init__(self) -> None:
+        from langid.langid import LanguageIdentifier, model as _langid_model
+        self._identifier = LanguageIdentifier.from_modelstring(_langid_model, norm_probs=True)
+        logger.info("LanguageConsistencyEvaluator ready (langid backend).")
+
+    def detect(self, text: str) -> Optional[str]:
+        """Return the langid-predicted ISO 639-1 code, or None for empty input."""
+        if not text or not text.strip():
+            return None
+        lang, _confidence = self._identifier.classify(text)
+        return lang
+
+    def compute_sample(self, generated_text: str, target_language: str) -> LCSample:
+        if target_language in LC_UNSUPPORTED_LANGUAGES:
+            return LCSample(
+                generated=generated_text, target_language=target_language,
+                detected_language=None, is_consistent=None,
+            )
+        detected = self.detect(generated_text)
+        return LCSample(
+            generated=generated_text, target_language=target_language,
+            detected_language=detected,
+            is_consistent=(detected == target_language) if detected is not None else None,
+        )
+
+    def evaluate_batch(
+        self, generated_texts: List[str], target_languages: List[str]
+    ) -> LCReport:
+        if len(generated_texts) != len(target_languages):
+            raise ValueError(
+                f"generated_texts ({len(generated_texts)}) and target_languages "
+                f"({len(target_languages)}) must be the same length."
+            )
+        samples = [
+            self.compute_sample(text, lang)
+            for text, lang in zip(generated_texts, target_languages)
+        ]
+        scorable = [s for s in samples if s.is_consistent is not None]
+        n_unscorable = len(samples) - len(scorable)
+        consistency_rate = (
+            sum(1 for s in scorable if s.is_consistent) / len(scorable)
+            if scorable else 0.0
+        )
+
+        per_lang: Dict[str, List[bool]] = {}
+        for s in scorable:
+            per_lang.setdefault(s.target_language, []).append(bool(s.is_consistent))
+        per_lang_rate = {lang: sum(vs) / len(vs) for lang, vs in per_lang.items()}
+
+        report = LCReport(
+            samples=samples,
+            consistency_rate=consistency_rate,
+            n_scored=len(scorable),
+            n_unscorable=n_unscorable,
+            per_language=per_lang_rate,
+        )
+        logger.info(report.summary())
+        return report

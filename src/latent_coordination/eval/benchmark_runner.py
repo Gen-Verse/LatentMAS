@@ -76,6 +76,7 @@ class MultiAgentBenchmarkRunner:
         output_dir: Optional[Path | str] = "results/coordination",
         max_samples_per_language: Optional[int] = None,
         languages: Optional[List[str]] = None,
+        translation_metrics: Optional[Dict[str, bool]] = None,
     ) -> None:
         self.output_dir = Path(output_dir) if output_dir else Path("results/coordination")
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +89,36 @@ class MultiAgentBenchmarkRunner:
                 f"max_samples_per_language must be a positive int or None, got {max_samples_per_language}"
             )
         self.max_samples_per_language = max_samples_per_language
+        # Real translation-quality scoring against the FLORES+ gold reference (task.context)
+        # and source (task.query). chrF is cheap and on by default; xcomet/cometkiwi load
+        # multi-GB checkpoints so they're opt-in (see dev_doc.md "Recommended upgrade path
+        # for COMET"). Keys: "chrf" | "xcomet" | "cometkiwi".
+        self.translation_metrics = {"chrf": True, "xcomet": False, "cometkiwi": False}
+        if translation_metrics:
+            self.translation_metrics.update(translation_metrics)
+
+    def _compute_translation_quality(
+        self, answers: List[str], scored_tasks: List,
+    ) -> Dict[str, float]:
+        """Score `answers` against each task's FLORES+ gold reference (task.context) and
+        source (task.query). Only meaningful for FLORES+-sourced tasks -- callers must
+        only invoke this with (answer, task) pairs that actually came from FLORES+.
+        """
+        if not answers or not scored_tasks:
+            return {}
+        references = [t.context for t in scored_tasks]
+        sources = [t.query for t in scored_tasks]
+        metrics: Dict[str, float] = {}
+        if self.translation_metrics.get("chrf"):
+            from shared.metrics import compute_chrf
+            metrics["chrf"] = compute_chrf(answers, references)
+        if self.translation_metrics.get("xcomet"):
+            from shared.metrics import compute_xcomet
+            metrics["xcomet"] = compute_xcomet(answers, references, sources)
+        if self.translation_metrics.get("cometkiwi"):
+            from shared.metrics import compute_cometkiwi
+            metrics["cometkiwi"] = compute_cometkiwi(answers, sources)
+        return metrics
 
     @staticmethod
     def _device_hint() -> str:
@@ -139,10 +170,12 @@ class MultiAgentBenchmarkRunner:
     def _eval_single_agent(self, router, tasks):
         t0 = time.perf_counter()
         responses = []
+        scored_tasks = []
         for task in tasks:
             plan = router.route(task)
             if plan.selected_agents:
                 responses.append(router.agents[plan.selected_agents[0]].process(task))
+                scored_tasks.append(task)
         latency_ms = (time.perf_counter() - t0) / max(len(tasks), 1) * 1000
         metrics = {
             "accuracy": self._compute_accuracy(responses, tasks),
@@ -150,13 +183,16 @@ class MultiAgentBenchmarkRunner:
             "token_cost": float(sum(len(r.output_text.split()) for r in responses)) / max(len(tasks), 1),
             "safety_rate": self._compute_safety_rate(responses),
         }
+        metrics.update(self._compute_translation_quality(
+            [r.output_text for r in responses], scored_tasks,
+        ))
         return metrics, responses
 
     def _eval_token_based(self, router, tasks):
         from latent_coordination.agents.base_agent import AgentTask
         from latent_coordination.eval.scoring import is_safety_response, select_answer
         t0 = time.perf_counter()
-        answers, safety = [], []
+        answers, safety, scored_tasks = [], [], []
         total_token_cost = 0.0
         for task in tasks:
             plan = router.route(task)
@@ -179,6 +215,7 @@ class MultiAgentBenchmarkRunner:
             answer = select_answer(step_responses)
             if answer is not None:
                 answers.append(answer)
+                scored_tasks.append(task)
             safety.extend(r for r in step_responses if is_safety_response(r))
         latency_ms = (time.perf_counter() - t0) / max(len(tasks), 1) * 1000
         metrics = {
@@ -187,12 +224,15 @@ class MultiAgentBenchmarkRunner:
             "token_cost": total_token_cost / max(len(tasks), 1),
             "safety_rate": self._compute_safety_rate(safety),
         }
+        metrics.update(self._compute_translation_quality(
+            [a.output_text for a in answers], scored_tasks,
+        ))
         return metrics, answers
 
     def _eval_latent(self, router, tasks, universal_space):
         from latent_coordination.eval.scoring import is_safety_response, select_answer
         t0 = time.perf_counter()
-        answers, safety = [], []
+        answers, safety, scored_tasks = [], [], []
         for task in tasks:
             orch_result = router.execute(task, router.route(task), universal_space)
             chain = orch_result.agent_responses
@@ -201,6 +241,7 @@ class MultiAgentBenchmarkRunner:
                 answer = select_answer(chain)
                 if answer is not None:
                     answers.append(answer)
+                    scored_tasks.append(task)
                 safety.extend(r for r in chain if is_safety_response(r))
         latency_ms = (time.perf_counter() - t0) / max(len(tasks), 1) * 1000
         metrics = {
@@ -209,6 +250,9 @@ class MultiAgentBenchmarkRunner:
             "token_cost": 0.0,   # no token-level communication overhead
             "safety_rate": self._compute_safety_rate(safety),
         }
+        metrics.update(self._compute_translation_quality(
+            [a.output_text for a in answers], scored_tasks,
+        ))
         return metrics, answers
 
     def run_eval(

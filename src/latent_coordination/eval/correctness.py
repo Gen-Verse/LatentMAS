@@ -310,17 +310,72 @@ class CorrectnessScorer:
 # Dataset loaders (thin wrappers around HF datasets for pipeline use)
 # ---------------------------------------------------------------------------
 
+# The upstream juletxara/mgsm release only ships these 11 configs -- it has no
+# Lao/Khmer/Burmese/Amharic data at all (verified via
+# datasets.get_dataset_config_names("juletxara/mgsm")). Validate up front so
+# callers get one clear, actionable error instead of the underlying library's
+# opaque "BuilderConfig 'km' not found" trace.
+MGSM_SUPPORTED_LANGUAGES = frozenset({"bn", "de", "en", "es", "fr", "ja", "ru", "sw", "te", "th", "zh"})
+
+
 def load_mgsm_tasks(language: str = "en", split: str = "test", n: Optional[int] = None):
     """Load MGSM tasks from the Hugging Face datasets hub.
 
     Returns a list of dicts with keys: ``question``, ``answer`` (int).
-    MGSM supports: bn, de, en, es, fr, ja, ru, sw, te, th, zh.
+
+    Raises:
+        ValueError: if ``language`` is outside MGSM_SUPPORTED_LANGUAGES. MGSM has no
+            Lao/Khmer/Burmese/Amharic data upstream; use Belebele/FLORES+/SEA-Vision
+            for those languages instead of MGSM.
     """
+    if language not in MGSM_SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f"MGSM does not have data for language '{language}'. juletxara/mgsm only "
+            f"covers {sorted(MGSM_SUPPORTED_LANGUAGES)}. This is an upstream dataset "
+            "limitation (no Lao/Khmer/Burmese/Amharic release exists), not a config "
+            "error -- use Belebele, FLORES+, or SEA-Vision for those languages instead."
+        )
     try:
         from datasets import load_dataset  # type: ignore
     except ImportError as exc:
         raise RuntimeError("datasets library required: pip install datasets") from exc
     ds = load_dataset("juletxara/mgsm", language, split=split)
+    items = [{"question": row["question"], "answer": int(row["answer_number"])} for row in ds]
+    return items[:n] if n is not None else items
+
+
+# McGill-NLP/mgsm-pro keys language by HF *split* name (not config -- the two configs,
+# "ic" and "symbolic", are instantiation categories). Coverage does NOT match base
+# MGSM: it has Amharic/Igbo/Twi/Yoruba but not Bengali/German/Russian/Telugu/Thai.
+MGSM_PRO_SUPPORTED_LANGUAGES = frozenset({"am", "en", "fr", "ig", "ja", "sw", "tw", "yo", "zh"})
+_MGSM_PRO_LANG_TO_SPLIT = {
+    "am": "amharic", "zh": "chinese", "en": "english", "fr": "french",
+    "ig": "igbo", "ja": "japanese", "sw": "swahili", "tw": "twi", "yo": "yoruba",
+}
+
+
+def load_mgsm_pro_tasks(
+    language: str = "en", config: str = "symbolic", n: Optional[int] = None,
+):
+    """Load MGSM-Pro tasks (memorization-resistant symbolic/name/context instantiations).
+
+    Same return schema as :func:`load_mgsm_tasks` ({"question", "answer"}) so it's a
+    drop-in benchmark option for the same MGSM-shaped baseline runners.
+
+    Raises:
+        ValueError: if ``language`` is outside MGSM_PRO_SUPPORTED_LANGUAGES.
+    """
+    if language not in MGSM_PRO_SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f"MGSM-Pro does not have data for language '{language}'. It only covers "
+            f"{sorted(MGSM_PRO_SUPPORTED_LANGUAGES)}."
+        )
+    try:
+        from datasets import load_dataset  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("datasets library required: pip install datasets") from exc
+    split = _MGSM_PRO_LANG_TO_SPLIT[language]
+    ds = load_dataset("McGill-NLP/mgsm-pro", config, split=split)
     items = [{"question": row["question"], "answer": int(row["answer"])} for row in ds]
     return items[:n] if n is not None else items
 

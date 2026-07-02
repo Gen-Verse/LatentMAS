@@ -95,8 +95,8 @@ def test_compute_reconstruction_error_has_effective_rank():
 # ---------------------------------------------------------------------------
 
 def test_universal_space_transfer_record_has_effective_rank():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("a", hidden_dim=64)
     uls.register_agent("b", hidden_dim=64)
     x = torch.randn(4, 64)
@@ -107,16 +107,16 @@ def test_universal_space_transfer_record_has_effective_rank():
 
 
 def test_align_ridge_shape():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
     src = torch.randn(20, 64)
     tgt = torch.randn(20, 32)
-    aligned = UniversalLatentSpace.align_ridge(src, tgt, alpha=1e-3)
+    aligned = UniversalLatentHub.align_ridge(src, tgt, alpha=1e-3)
     assert aligned.shape == (20, 32)
 
 
 def test_compute_information_metrics_keys():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("x", hidden_dim=64)
     x = torch.randn(8, 64)
     m = uls.compute_information_metrics("x", x)
@@ -125,8 +125,8 @@ def test_compute_information_metrics_keys():
 
 
 def test_transfer_with_norm_match():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("a", hidden_dim=64)
     uls.register_agent("b", hidden_dim=64)
     x = torch.randn(4, 64)
@@ -323,8 +323,8 @@ def test_breakeven_n_positive():
 
 def test_info_theoretic_analyzer_keys():
     from latent_coordination.eval.information_theory import InfoTheoreticAnalyzer
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("a", hidden_dim=64)
     analyzer = InfoTheoreticAnalyzer(hub_dim=32)
     x = torch.randn(8, 64)
@@ -359,8 +359,8 @@ def test_latent_gate_defense_clamps_outliers():
 
 def test_adversarial_eval_returns_per_epsilon_keys():
     from latent_coordination.eval.adversarial import run_adversarial_eval
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=16)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=16)
     uls.register_agent("a", hidden_dim=32)
     uls.register_agent("b", hidden_dim=32)
     x = torch.randn(4, 32)

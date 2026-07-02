@@ -238,8 +238,8 @@ class EfficiencyAnalyzer:
         # --- Latent mode ---
         if "latent" in modes:
             per_sample["latent"] = {"latency_ms": [], "accuracy": [], "cost": []}
-            from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-            universal_space = UniversalLatentSpace(universal_dim=128)
+            from latent_coordination.latent_space.universal_space import UniversalLatentHub
+            universal_space = UniversalLatentHub(universal_dim=128)
             accuracies_latent = []
             from latent_coordination.eval.scoring import select_answer
             for task in tasks:

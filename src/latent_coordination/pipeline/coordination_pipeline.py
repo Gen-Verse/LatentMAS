@@ -13,7 +13,7 @@ import torch
 
 from latent_coordination.agents.base_agent import AgentConfig, AgentTask
 from latent_coordination.agents.specialized_agents import TranslationAgent, ReasoningAgent, SafetyAgent
-from latent_coordination.latent_space.universal_space import UniversalLatentSpace
+from latent_coordination.latent_space.universal_space import UniversalLatentHub
 from latent_coordination.latent_space.adapter import AdapterConfig, LatentAdapter
 from latent_coordination.topology.cvae_prior import CVAETopologyPrior, TrainingConfig
 from latent_coordination.topology.graph_utils import GraphUtils
@@ -146,30 +146,74 @@ class CoordinationPipeline:
                 f"reachable on the HF Hub or add it to the known map."
             ) from exc
 
+    _STAGE_LETTERS = ("A", "B", "C", "D", "E", "F", "G")
+
     def run(self, stages: Optional[List[str]] = None) -> Dict:
-        """Executes the pipeline stage-by-stage with resume support."""
-        logger.info("Executing Latent Coordination Multi-Agent Pipeline. Configuration: %s", self.config)
+        """Executes the pipeline stage-by-stage with resume support.
+
+        ``stages`` restricts execution to a subset of A-G (see ``_STAGE_LETTERS``;
+        note this is the pipeline's own internal lettering -- A=setup, B=CVAE training,
+        C=adapter pretraining, D=intent centroids, E=multi-agent execution & ablation,
+        F=visualization, G=report -- which is NOT the same as scripts/run_coordination_
+        pipeline.py's STAGE_MAP labels, a separate/aspirational 8-letter scheme that was
+        never reconciled with this method; that CLI passes its own letters straight
+        through, so use A-G here regardless of what the CLI's --help text calls them).
+        Stages A-E produce objects later stages depend on: any stage not in ``stages``
+        must have a prior checkpoint to load from, or this raises -- it does not
+        silently skip and leave the dependency unset.
+        """
+        requested = set(s.upper() for s in stages) if stages else set(self._STAGE_LETTERS)
+        unknown = requested - set(self._STAGE_LETTERS)
+        if unknown:
+            raise ValueError(
+                f"Unknown stage letter(s) {sorted(unknown)}. Valid: {self._STAGE_LETTERS}."
+            )
+        logger.info(
+            "Executing Latent Coordination Multi-Agent Pipeline (stages=%s). Configuration: %s",
+            sorted(requested), self.config,
+        )
+
+        def _ensure(letter: str, checkpoint_key: str, compute_fn):
+            if letter in requested:
+                return compute_fn()
+            if self.checkpoint_manager.exists(checkpoint_key):
+                logger.info(
+                    "Stage %s not requested; loading '%s' from checkpoint instead of recomputing.",
+                    letter, checkpoint_key,
+                )
+                return self.checkpoint_manager.load_latest(checkpoint_key)
+            raise RuntimeError(
+                f"Stage {letter} was not requested via --stages and no checkpoint "
+                f"'{checkpoint_key}' exists to load its output from (needed by a later "
+                f"stage). Either include stage {letter} in --stages, or run once without "
+                f"--stages first to create the checkpoint, then re-run with --resume."
+            )
 
         # Stage A: System Setup
-        router, universal_space = self._run_stage_a()
+        router, universal_space = _ensure("A", "stage_a", self._run_stage_a)
 
         # Stage B: CVAE Topology Training
-        cvae_prior = self._run_stage_b()
+        cvae_prior = _ensure("B", "stage_b", self._run_stage_b)
 
         # Stage C: Adapter Pre-training
-        self._run_stage_c(universal_space)
+        _ensure("C", "stage_c", lambda: self._run_stage_c(universal_space))
 
         # Stage D: Intent Centroid Mapping
-        self._run_stage_d(router)
+        _ensure("D", "stage_d", lambda: self._run_stage_d(router))
 
         # Stage E: Multi-Agent Execution & Ablation
-        benchmark_report = self._run_stage_e(router, universal_space)
+        benchmark_report = _ensure("E", "stage_f", lambda: self._run_stage_e(router, universal_space))
 
-        # Stage F: Visualizations
-        self._run_stage_f(router, universal_space, benchmark_report)
+        # Stage F: Visualizations (best-effort, no downstream dependency -- just skip if unrequested)
+        if "F" in requested:
+            self._run_stage_f(router, universal_space, benchmark_report)
 
         # Stage G: Report compilation
-        final_report = self._run_stage_g(benchmark_report)
+        if "G" in requested:
+            final_report = self._run_stage_g(benchmark_report)
+        else:
+            logger.info("Stage G not requested; returning the raw benchmark report instead of a compiled final_report.")
+            final_report = benchmark_report
 
         return final_report
 
@@ -194,7 +238,7 @@ class CoordinationPipeline:
                         agent.config.agent_id, old, new_device,
                     )
 
-    def _run_stage_a(self) -> Tuple[AdaptiveOrchestrator, UniversalLatentSpace]:
+    def _run_stage_a(self) -> Tuple[AdaptiveOrchestrator, UniversalLatentHub]:
         """Stage A: Setup orchestrators, databases, and adapters registry."""
         if self.resume and self.checkpoint_manager.exists("stage_a"):
             logger.info("Resuming Stage A from checkpoints.")
@@ -204,12 +248,19 @@ class CoordinationPipeline:
 
         logger.info("Running Stage A: Launching agent registry and universal space mappings.")
         router = AdaptiveOrchestrator(device=self.config.device)
-        universal_space = UniversalLatentSpace(universal_dim=self.config.universal_space_dim)
+        universal_space = UniversalLatentHub(universal_dim=self.config.universal_space_dim)
 
-        # Register specialized agents — hidden_dim must match the model's hidden_size.
-        # Qwen1.5-0.5B-Chat: hidden_size=1024; Qwen3.5-9B: hidden_size=4096 (text backbone).
-        model_id = self._agent_model_id
-        hidden_dim = self._resolve_agent_hidden_dim(model_id)
+        # Register specialized agents — hidden_dim must match each agent's OWN model's
+        # hidden_size. Each agent in configs/*.yaml carries its own model_id (that's the
+        # whole point of configs/latent_coordination_heterogeneous.yaml's mixed
+        # llama/qwen2/cohere pool) -- read it per-role here instead of collapsing every
+        # agent onto self._agent_model_id (which is only ever the *first* config entry,
+        # i.e. the orchestrator's model). Falls back to self._agent_model_id for any
+        # role missing from the config, matching the historical homogeneous default.
+        agent_model_ids = {
+            agent.get("role"): agent.get("model_id", self._agent_model_id)
+            for agent in self._raw_config.get("agents", [])
+        }
         agent_devices = {
             agent.get("role"): agent.get("device", self.config.device)
             for agent in self._raw_config.get("agents", [])
@@ -218,7 +269,11 @@ class CoordinationPipeline:
             agent.get("role"): agent.get("load_in_8bit", False)
             for agent in self._raw_config.get("agents", [])
         }
-        
+
+        t_model = agent_model_ids.get("translation", self._agent_model_id)
+        r_model = agent_model_ids.get("reasoning", self._agent_model_id)
+        s_model = agent_model_ids.get("safety", self._agent_model_id)
+
         t_device = agent_devices.get("translation", self.config.device)
         r_device = agent_devices.get("reasoning", self.config.device)
         s_device = agent_devices.get("safety", self.config.device)
@@ -239,14 +294,18 @@ class CoordinationPipeline:
         t_toks = agent_tokens.get("translation", 512)
         r_toks = agent_tokens.get("reasoning", 512)
         s_toks = agent_tokens.get("safety", 512)
-        
+
         t_dt = agent_dtype.get("translation", "float16")
         r_dt = agent_dtype.get("reasoning", "float16")
         s_dt = agent_dtype.get("safety", "float16")
 
-        t_conf = AgentConfig(agent_id="agent_trans", model_id=model_id, role="translation", device=t_device, hidden_dim=hidden_dim, load_in_8bit=t_8bit, max_new_tokens=t_toks, dtype=t_dt)
-        r_conf = AgentConfig(agent_id="agent_reason", model_id=model_id, role="reasoning", device=r_device, hidden_dim=hidden_dim, load_in_8bit=r_8bit, max_new_tokens=r_toks, dtype=r_dt)
-        s_conf = AgentConfig(agent_id="agent_safety", model_id=model_id, role="safety", device=s_device, hidden_dim=hidden_dim, load_in_8bit=s_8bit, max_new_tokens=s_toks, dtype=s_dt)
+        t_hidden = self._resolve_agent_hidden_dim(t_model)
+        r_hidden = self._resolve_agent_hidden_dim(r_model)
+        s_hidden = self._resolve_agent_hidden_dim(s_model)
+
+        t_conf = AgentConfig(agent_id="agent_trans", model_id=t_model, role="translation", device=t_device, hidden_dim=t_hidden, load_in_8bit=t_8bit, max_new_tokens=t_toks, dtype=t_dt)
+        r_conf = AgentConfig(agent_id="agent_reason", model_id=r_model, role="reasoning", device=r_device, hidden_dim=r_hidden, load_in_8bit=r_8bit, max_new_tokens=r_toks, dtype=r_dt)
+        s_conf = AgentConfig(agent_id="agent_safety", model_id=s_model, role="safety", device=s_device, hidden_dim=s_hidden, load_in_8bit=s_8bit, max_new_tokens=s_toks, dtype=s_dt)
 
         router.register_agent(TranslationAgent(t_conf))
         router.register_agent(ReasoningAgent(r_conf))
@@ -328,15 +387,26 @@ class CoordinationPipeline:
         self.checkpoint_manager.save(cvae_prior, "stage_b")
         return cvae_prior
 
-    def _run_stage_c(self, universal_space: UniversalLatentSpace) -> None:
+    def _run_stage_c(self, universal_space: UniversalLatentHub) -> None:
         """Stage C: Latent adapters matching dimensions training."""
         if self.resume and self.checkpoint_manager.exists("stage_c"):
             logger.info("Resuming Stage C from checkpoints.")
             return
 
         logger.info("Running Stage C: Adapters optimization mapping dimensions.")
-        hidden_dim = self._resolve_agent_hidden_dim(self._agent_model_id)
-        for aid in ["agent_trans", "agent_reason", "agent_safety"]:
+        # Per-agent model_id (see _run_stage_a's fix note) -- registering every agent
+        # with a single uniform hidden_dim silently discarded this stage's trained
+        # adapters the moment Stage E re-registered each agent with its actual (possibly
+        # different) hidden_dim from a real forward pass, for any agent whose model
+        # doesn't happen to share the orchestrator's hidden_size.
+        agent_model_ids = {
+            agent.get("role"): agent.get("model_id", self._agent_model_id)
+            for agent in self._raw_config.get("agents", [])
+        }
+        role_by_agent_id = {"agent_trans": "translation", "agent_reason": "reasoning", "agent_safety": "safety"}
+        for aid, role in role_by_agent_id.items():
+            model_id = agent_model_ids.get(role, self._agent_model_id)
+            hidden_dim = self._resolve_agent_hidden_dim(model_id)
             universal_space.register_agent(aid, hidden_dim=hidden_dim)
 
         self.checkpoint_manager.save(True, "stage_c")
@@ -380,7 +450,7 @@ class CoordinationPipeline:
         router.fit_centroids(historical_embeddings, n_clusters=3)
         self.checkpoint_manager.save(True, "stage_d")
 
-    def _run_stage_e(self, router: AdaptiveOrchestrator, universal_space: UniversalLatentSpace) -> Dict:
+    def _run_stage_e(self, router: AdaptiveOrchestrator, universal_space: UniversalLatentHub) -> Dict:
         """Stage E: Query execution evaluations and ablations."""
         if self.resume and self.checkpoint_manager.exists("stage_f"):
             logger.info("Resuming Stage E from checkpoints.")
@@ -398,6 +468,9 @@ class CoordinationPipeline:
             output_dir=self.run_dir,
             max_samples_per_language=cap,
             languages=self.config.target_languages or None,
+            translation_metrics=self._raw_config.get("benchmarks", {})
+            .get("flores_plus", {})
+            .get("translation_metrics"),
         )
         real_tasks = benchmark_runner._load_real_tasks()
         if not real_tasks:
@@ -438,7 +511,7 @@ class CoordinationPipeline:
     def _run_stage_f(
         self,
         router: AdaptiveOrchestrator,
-        universal_space: UniversalLatentSpace,
+        universal_space: UniversalLatentHub,
         benchmark_report: Dict,
     ) -> None:
         """Stage F: Visualizing topology layouts, scaling properties, and convergence curves."""

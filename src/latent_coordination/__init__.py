@@ -5,7 +5,7 @@ Transferable Topology, Adaptive Orchestration, and Cross-Lingual Latent Steering
 
 
 # Latent Coordination & Reasoning exports
-from .topology.cvae_prior import GeometryConditionedCVAEPrior
+from .topology.cvae_prior import CVAETopologyPrior, TrainingConfig
 from .latent_space.universal_space import UniversalLatentHub
 from .orchestration.router import AdaptiveOrchestrator, AttentionRouter
 from .agents.base_agent import BaseAgent
@@ -27,7 +27,7 @@ from .geometry.isomorphism import GeometricIsomorphismAnalyzer
 from .steering.gaussian_scheduler import GaussianDepthScheduler
 from .steering.magnitude_norm import MagnitudeNormalizer
 from .steering.latent_steerer import LatentSteerer
-from .eval.script_fidelity import ScriptFidelityEvaluator
+from .eval.script_fidelity import ScriptFidelityEvaluator, LanguageConsistencyEvaluator
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
@@ -39,7 +39,8 @@ __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
 __all__ = [
-    "GeometryConditionedCVAEPrior",
+    "CVAETopologyPrior",
+    "TrainingConfig",
     "UniversalLatentHub",
     "AdaptiveOrchestrator",
     "AttentionRouter",
@@ -62,4 +63,5 @@ __all__ = [
     "MagnitudeNormalizer",
     "LatentSteerer",
     "ScriptFidelityEvaluator",
+    "LanguageConsistencyEvaluator",
 ]

@@ -1,0 +1,160 @@
+# Heterogeneous cross-architecture variant of configs/latent_coordination.yaml.
+# Every other config in this repo runs all four agents on the same backbone (SEA-LION),
+# which makes the "LLaMA safety agent + Qwen reasoning agent"-style ablation claim in
+# strategy.md 7.2 vacuous -- same architecture family, different checkpoint. This config
+# actually mixes architecture families (llama / qwen2 / cohere) per agent role so that
+# ablation is real. See dev_doc.md section 3 "Recommended additions".
+project:
+  name: latent_coordination_heterogeneous
+  version: 0.2.0
+  description: Decentralized multi-agent reasoning with a genuinely heterogeneous
+    (cross-architecture) agent pool
+  output_dir: results/coordination_heterogeneous
+  seed: 42
+agents:
+- id: orchestrator
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: orchestrator
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 128
+- id: translation_agent
+  # sail/Sailor2-8B-Chat: broadest single-model SEA language coverage (12 languages
+  # incl. lo/my/km/jv/su/fil) of any model in this repo -- best fit for the
+  # translation role specifically.
+  model_id: sail/Sailor2-8B-Chat
+  role: translation
+  device: cuda:1
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 256
+- id: reasoning_agent
+  # meta-llama/Llama-3.1-8B-Instruct: standard llama-arch comparison point, distinct
+  # checkpoint lineage from the SEA-LION orchestrator despite the shared architecture.
+  model_id: meta-llama/Llama-3.1-8B-Instruct
+  role: reasoning
+  device: cuda:2
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 512
+- id: safety_agent
+  # CohereLabs/aya-expanse-8b: the only genuinely different architecture family
+  # (cohere, vs qwen2/llama everywhere else in this config) -- this is what makes the
+  # cross-architecture ablation real rather than same-arch-different-checkpoint.
+  model_id: CohereLabs/aya-expanse-8b
+  role: safety
+  device: cuda:3
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 128
+universal_latent_space:
+  universal_dim: 2048
+  adapter_hidden_dim: 1024
+  adapter_dropout: 0.1
+  adapter_training:
+    n_epochs: 50
+    lr: 0.001
+    batch_size: 32
+cvae:
+  query_dim: 64
+  graph_dim: 9
+  latent_dim: 32
+  encoder_hidden:
+  - 128
+  - 64
+  decoder_hidden:
+  - 64
+  - 128
+  training:
+    n_epochs: 100
+    lr: 0.001
+    beta_max: 4.0
+    warmup_epochs: 10
+    batch_size: 64
+  checkpoint_path: .cache/checkpoints/coordination_heterogeneous/cvae
+orchestration:
+  n_intent_centroids: 8
+  routing_strategy: latent_centroid
+  parallel_agents: true
+  max_parallel_workers: 4
+  timeout_per_agent_s: 60
+communication:
+  modes:
+  - token
+  - latent
+  - hybrid
+  track_all: true
+  latent_transfer_layer: -4
+  # latent_based_mas_ours (hidden-state transfer) is only meaningful for
+  # same-architecture agent pairs -- LatentMASBaseline.share_hidden_state raises
+  # ValueError across architecture families (see run_latentmas.py docstring). With this
+  # agent pool, only single_agent_baseline and token_based_mas are runnable end-to-end;
+  # latent_based_mas_ours is kept here to surface/measure that failure mode explicitly.
+  eval_modes:
+  - single_agent_baseline
+  - token_based_mas
+  - latent_based_mas_ours
+  backend: auto
+benchmarks:
+  flores_plus:
+    translation_metrics:
+      chrf: true
+      xcomet: true
+      cometkiwi: true
+    # 100/language x 3 languages/instance x 3 comm-modes fits ~4.7h on 1 set of 4 GPUs
+    # (see dev_doc.md Section 5). Run as 2 parallel instances (--languages th,my,km /
+    # lo,am,sw, --agents ...device=cuda:4..7, --output-dir results/coordination_heterogeneous_2)
+    # to cover all 6 languages across all 8 GPUs in the same wall-clock budget.
+    n_samples_per_language: 100
+  sea_vision:
+    enabled: true
+    n_samples_per_language: 200
+    local_dir: null
+  sea_safeguardbench:
+    enabled: true
+    n_samples: 200
+ablation:
+  communication_modes:
+  - token_based
+  - latent_based
+  - hybrid
+  n_agents_sweep:
+  - 2
+  - 4
+  - 8
+  - 16
+  topology_types:
+  - hub_spoke
+  - fully_connected
+  - ring
+visualization:
+  save_formats:
+  - png
+  - pdf
+  dpi: 300
+  style: seaborn-v0_8-whitegrid
+  plots:
+  - agent_topology
+  - cvae_latent_space
+  - topology_evolution
+  - transfer_matrix
+  - token_vs_latent_cost
+  - accuracy_vs_latency
+  - scalability
+  - universal_space_embeddings
+  - transfer_trajectory
+  - intent_centroids
+  - communication_timeline
+checkpointing:
+  enabled: true
+  interval_stages: 1
+  keep_last_n: 5
+  checkpoint_dir: .cache/checkpoints/coordination_heterogeneous
+logging:
+  level: INFO
+  log_dir: logs/coordination_heterogeneous
+  json_logs: true
+parallelism:
+  n_workers: 4
+  use_asyncio: true

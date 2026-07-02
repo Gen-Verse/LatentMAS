@@ -69,7 +69,7 @@ class LatentMASBaseline:
             raise ValueError(
                 f"LatentMASBaseline requires homogeneous hidden dims. "
                 f"Sender has {sender_hidden.shape[-1]}, receiver expects {receiver_hidden_dim}. "
-                f"Use UniversalLatentSpace for heterogeneous agents."
+                f"Use UniversalLatentHub for heterogeneous agents."
             )
         return sender_hidden.to(self.device)
 

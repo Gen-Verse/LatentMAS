@@ -45,6 +45,7 @@ from latent_coordination.eval.correctness import (
     CorrectnessScorer,
     load_belebele_tasks,
     load_mgsm_tasks,
+    load_mgsm_pro_tasks,
     score_mgsm,
 )
 
@@ -65,7 +66,7 @@ logger = logging.getLogger(__name__)
 class LatentMASRunConfig:
     """Configuration for the LatentMAS baseline runner."""
     model_id: str = "Qwen/Qwen2.5-7B-Instruct"
-    benchmark: str = "mgsm"          # "mgsm" | "belebele"
+    benchmark: str = "mgsm"          # "mgsm" | "mgsm_pro" | "belebele"
     language: str = "en"
     split: str = "test"
     n: Optional[int] = 200           # number of tasks; None = full split
@@ -116,10 +117,17 @@ def _load_model_and_tokenizer(config: LatentMASRunConfig):
         "attn_implementation": "sdpa",
     }
     if config.load_in_8bit:
-        load_kwargs["load_in_8bit"] = True
+        from transformers import BitsAndBytesConfig
+        load_kwargs["quantization_config"] = BitsAndBytesConfig(load_in_8bit=True)
         load_kwargs.pop("torch_dtype", None)
+        # Quantized models are placed at load time via device_map; .to() on them raises
+        # ValueError ("`.to` is not supported for `8-bit` bitsandbytes models"). Pin to
+        # the single requested device explicitly instead of letting it default/shard.
+        load_kwargs["device_map"] = {"": config.device}
     model = AutoModelForCausalLM.from_pretrained(config.model_id, **load_kwargs)
-    model = model.to(config.device).eval()
+    if not config.load_in_8bit:
+        model = model.to(config.device)
+    model = model.eval()
     tokenizer = AutoTokenizer.from_pretrained(config.model_id, trust_remote_code=True)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -153,9 +161,17 @@ def _extract_last_hidden(model, tokenizer, text: str, device: str) -> torch.Tens
 
 
 def run_mgsm(config: LatentMASRunConfig) -> LatentMASRunReport:
-    """Run LatentMAS two-agent chain on MGSM and score with exact-match."""
-    tasks = load_mgsm_tasks(language=config.language, split=config.split, n=config.n)
-    logger.info("Loaded %d MGSM tasks (lang=%s)", len(tasks), config.language)
+    """Run LatentMAS two-agent chain on MGSM (or MGSM-Pro) and score with exact-match.
+
+    MGSM-Pro has the same {"question", "answer"} schema as base MGSM but different
+    language coverage (Amharic/Igbo/Twi/Yoruba, not Bengali/German/Russian/Telugu/Thai)
+    -- selecting it via config.benchmark="mgsm_pro" reuses this same runner unchanged.
+    """
+    if config.benchmark == "mgsm_pro":
+        tasks = load_mgsm_pro_tasks(language=config.language, n=config.n)
+    else:
+        tasks = load_mgsm_tasks(language=config.language, split=config.split, n=config.n)
+    logger.info("Loaded %d %s tasks (lang=%s)", len(tasks), config.benchmark, config.language)
 
     model, tokenizer = _load_model_and_tokenizer(config)
     hidden_dim = model.config.hidden_size
@@ -208,7 +224,7 @@ def run_mgsm(config: LatentMASRunConfig) -> LatentMASRunReport:
     )
     return LatentMASRunReport(
         config=asdict(config),
-        benchmark="mgsm",
+        benchmark=config.benchmark,
         language=config.language,
         n_total=len(results),
         n_correct=n_correct,
@@ -300,7 +316,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="LatentMAS baseline runner on MGSM / Belebele")
     parser.add_argument("--model_id", default="Qwen/Qwen2.5-7B-Instruct")
-    parser.add_argument("--benchmark", choices=["mgsm", "belebele"], default="mgsm")
+    parser.add_argument("--benchmark", choices=["mgsm", "mgsm_pro", "belebele"], default="mgsm")
     parser.add_argument("--language", default="en")
     parser.add_argument("--split", default="test")
     parser.add_argument("--n", type=int, default=200, help="Number of tasks (None = full split)")
@@ -332,7 +348,7 @@ def main() -> None:
         max_new_tokens=args.max_new_tokens,
     )
 
-    if args.benchmark == "mgsm":
+    if args.benchmark in ("mgsm", "mgsm_pro"):
         report = run_mgsm(cfg)
     else:
         report = run_belebele(cfg)

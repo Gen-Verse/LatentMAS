@@ -9,7 +9,7 @@ dedicated projection.  This baseline demonstrates that O(N²) pairwise latent
 communication exists as an alternative; the paper's O(N) hub-and-spoke design
 should compare against it to show the scaling advantage.
 
-Key differences from UniversalLatentSpace:
+Key differences from UniversalLatentHub:
     • Pairwise projections (O(N²) params and O(N²) transfers per round).
     • Operates on KV-cache pairs (key + value) rather than last-layer hidden.
     • Learnable scalar gate per (sender, receiver) pair.

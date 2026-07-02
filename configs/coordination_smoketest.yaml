@@ -1,0 +1,115 @@
+# Small-scale smoke-test variant of configs/latent_coordination.yaml.
+# Single GPU, tiny sample counts, few epochs -- exercises every stage/code path in
+# minutes rather than the hours a full run takes. Override device via
+# scripts/smoke_test.sh's --agents flag or --device on this file directly.
+project:
+  name: latent_coordination_smoketest
+  version: 0.2.0
+  description: Smoke test for the Decentralized multi-agent reasoning pipeline
+  output_dir: results/smoketest/coordination
+  seed: 42
+agents:
+- id: orchestrator
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: orchestrator
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 32
+- id: translation_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: translation
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 32
+- id: reasoning_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: reasoning
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 64
+- id: safety_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: safety
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 32
+universal_latent_space:
+  universal_dim: 256
+  adapter_hidden_dim: 128
+  adapter_dropout: 0.1
+  adapter_training:
+    n_epochs: 2
+    lr: 0.001
+    batch_size: 8
+cvae:
+  query_dim: 64
+  graph_dim: 9
+  latent_dim: 16
+  encoder_hidden:
+  - 32
+  decoder_hidden:
+  - 32
+  training:
+    n_epochs: 2
+    lr: 0.001
+    beta_max: 4.0
+    warmup_epochs: 1
+    batch_size: 8
+  checkpoint_path: .cache/checkpoints/smoketest_aaai/cvae
+orchestration:
+  n_intent_centroids: 2
+  routing_strategy: latent_centroid
+  parallel_agents: false
+  max_parallel_workers: 1
+  timeout_per_agent_s: 60
+communication:
+  modes:
+  - token
+  - latent
+  track_all: true
+  latent_transfer_layer: -4
+  eval_modes:
+  - single_agent_baseline
+  - token_based_mas
+  - latent_based_mas_ours
+  backend: auto
+benchmarks:
+  sea_vision:
+    enabled: true
+    n_samples_per_language: 2
+    local_dir: null
+  sea_safeguardbench:
+    enabled: false
+    n_samples: 2
+ablation:
+  communication_modes:
+  - token_based
+  - latent_based
+  n_agents_sweep:
+  - 2
+  topology_types:
+  - hub_spoke
+visualization:
+  save_formats:
+  - png
+  dpi: 100
+  style: seaborn-v0_8-whitegrid
+  plots:
+  - agent_topology
+  - cvae_latent_space
+checkpointing:
+  enabled: true
+  interval_stages: 1
+  keep_last_n: 2
+  checkpoint_dir: .cache/checkpoints/smoketest_aaai
+logging:
+  level: INFO
+  log_dir: logs/smoketest
+  json_logs: true
+parallelism:
+  n_workers: 1
+  use_asyncio: false

@@ -12,7 +12,7 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from latent_coordination.agents.base_agent import BaseAgent, AgentResponse, AgentTask
-from latent_coordination.topology.cvae_prior import GeometryConditionedCVAEPrior
+from latent_coordination.topology.cvae_prior import CVAETopologyPrior
 from latent_coordination.latent_space.universal_space import UniversalLatentHub
 
 __author__ = "Himon Thakur"

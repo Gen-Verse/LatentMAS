@@ -218,8 +218,11 @@ class LogitLens:
                 for tid, p in zip(topk_ids, topk_probs)
             ]
 
-            en_mass = float(probs[english_ids_t].sum())
-            tgt_mass = float(probs[target_ids_t].sum()) if target_ids_t is not None else 0.0
+            # probs lands wherever accelerate placed the lm_head (e.g. the last shard of a
+            # device_map="auto" split, which need not be `self.device`); index with tensors
+            # moved to probs' actual device rather than assuming a single fixed device.
+            en_mass = float(probs[english_ids_t.to(probs.device)].sum())
+            tgt_mass = float(probs[target_ids_t.to(probs.device)].sum()) if target_ids_t is not None else 0.0
 
             clamped = probs.clamp(min=1e-10)
             entropy = float(-torch.sum(clamped * clamped.log()))

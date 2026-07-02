@@ -40,15 +40,19 @@ __status__ = "prototype"
 # ---------------------------------------------------------------------------
 # Stage registry
 # ---------------------------------------------------------------------------
+# Must match CoordinationPipeline._STAGE_LETTERS / .run()'s internal stage order
+# exactly -- this used to be a separate, aspirational 8-letter scheme (A-H) that was
+# never reconciled with the actual pipeline code, so `--stages` silently did nothing
+# (CoordinationPipeline.run() ignored its `stages` argument entirely). Fixed together
+# with pipeline.py's run() so the two can't drift apart again unnoticed.
 STAGE_MAP = {
-    "A": "Universal Latent Space Adapter Training",
+    "A": "System Setup (agents, orchestrator, universal latent space)",
     "B": "CVAE Topology Prior Training",
-    "C": "Intent Centroid Fitting",
-    "D": "Multi-Agent Orchestration & Benchmark",
-    "E": "Communication Mode Ablation",
-    "F": "Scalability Study (n_agents sweep)",
-    "G": "Safety Evaluation (SEA-SafeguardBench)",
-    "H": "Visualization & Report",
+    "C": "Universal Latent Space Adapter Pre-training",
+    "D": "Intent Centroid Fitting",
+    "E": "Multi-Agent Execution & Communication-Mode Ablation (the benchmark eval)",
+    "F": "Visualization (topology/latent-space/efficiency plots)",
+    "G": "Final Report Compilation",
 }
 
 ALL_STAGES = list(STAGE_MAP.keys())

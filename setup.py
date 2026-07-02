@@ -9,5 +9,4 @@ __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
-
 setuptools.setup()

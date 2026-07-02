@@ -4,7 +4,7 @@
 from latent_coordination.eval.efficiency_metrics import EfficiencyAnalyzer, AblationReport
 from .adversarial import BoundedLatentAttacker, LatentGateDefense
 from .information_theory import InfoTheoreticAnalyzer
-from .script_fidelity import ScriptFidelityEvaluator
+from .script_fidelity import ScriptFidelityEvaluator, LanguageConsistencyEvaluator
 from .multi_agent_runner import MultiAgentRunner
 from .verification_probe import QueryReconstructionProbe
 
@@ -13,6 +13,7 @@ __all__ = [
     "LatentGateDefense",
     "InfoTheoreticAnalyzer",
     "ScriptFidelityEvaluator",
+    "LanguageConsistencyEvaluator",
     "MultiAgentRunner",
     "QueryReconstructionProbe"
 ]

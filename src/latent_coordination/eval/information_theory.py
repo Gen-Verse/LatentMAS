@@ -187,7 +187,7 @@ class InfoTheoreticAnalyzer:
         """Run all information-theoretic metrics for a single agent's hub mapping.
 
         Args:
-            uls: Registered :class:`UniversalLatentSpace`.
+            uls: Registered :class:`UniversalLatentHub`.
             hidden_states: Sample hidden states, shape (B, D_agent).
             agent_id: Registered agent to analyse.
             text_tokens_equivalent: Number of tokens the message would occupy as

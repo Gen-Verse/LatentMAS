@@ -115,7 +115,15 @@ class ActivationExtractor:
 
         # Ensure model is in eval mode
         self.model.eval()
-        if hasattr(self.model, "to"):
+        # Quantized (bitsandbytes 8/4-bit) or accelerate-dispatched (device_map=...) models
+        # are already placed on their target device(s) at load time; calling .to() on them
+        # raises ValueError ("`.to` is not supported for `8-bit` bitsandbytes models") or, for
+        # multi-GPU device_map="auto" splits, would incorrectly collapse them onto one device.
+        is_quantized = getattr(self.model, "is_quantized", False) or getattr(
+            self.model, "is_loaded_in_8bit", False
+        ) or getattr(self.model, "is_loaded_in_4bit", False)
+        is_dispatched = bool(getattr(self.model, "hf_device_map", None))
+        if hasattr(self.model, "to") and not is_quantized and not is_dispatched:
             self.model.to(self.device)
 
         # Resolve decoder layers once
@@ -222,8 +230,12 @@ class ActivationExtractor:
                         logger.warning("No states captured for layer %d", lid)
                         continue
                     hs = capture.states  # (batch, seq_len, hidden_dim)
-                    pooled = self._pool(hs, attention_mask.cpu())
-                    accum[lid].append(pooled)
+                    # With device_map="auto" (multi-GPU) each captured layer can land on a
+                    # different shard than `attention_mask`; _pool moves the mask itself, so
+                    # just pass it as-is rather than forcing .cpu() (which broke as soon as
+                    # `hs` wasn't also on cpu).
+                    pooled = self._pool(hs, attention_mask)
+                    accum[lid].append(pooled.cpu())
 
         # Concatenate batches
         result: Dict[int, Tensor] = {}
@@ -346,6 +358,9 @@ class ActivationExtractor:
         Tensor
             Pooled representation, shape ``(batch, hidden_dim)``.
         """
+        # With device_map="auto" (multi-GPU) `hidden_states` may live on a different shard
+        # than wherever `attention_mask` was created; move it rather than assume they match.
+        attention_mask = attention_mask.to(hidden_states.device)
         mask = attention_mask.unsqueeze(-1).float()  # (batch, seq, 1)
 
         if self.pooling == "mean":
@@ -358,7 +373,7 @@ class ActivationExtractor:
             lengths = attention_mask.sum(dim=1) - 1  # (batch,)
             batch_size = hidden_states.shape[0]
             return hidden_states[
-                torch.arange(batch_size), lengths.clamp(min=0), :
+                torch.arange(batch_size, device=hidden_states.device), lengths.clamp(min=0), :
             ]
 
         elif self.pooling == "max":

@@ -249,12 +249,19 @@ def resolve_backend(
     if name == "vllm" and output_hidden_states:
         raise ValueError("vLLM backend does not support output_hidden_states=True. Please use the HF backend for latent state extraction tasks.")
 
+    if name == "vllm" and not vllm_supported(device):
+        # Per the module contract above: unsupported hardware/missing install falls
+        # back to HF with a clear log line rather than crashing -- vLLM is a pure
+        # speed optimization for token-only generation, HF is always a valid substitute
+        # for that (unlike the output_hidden_states case above, which is a hard error
+        # because HF and vLLM are not interchangeable for latent-access tasks).
+        logger.info(
+            "vLLM backend was requested but is not available on %s (e.g. V100/sm_70, or "
+            "vllm not installed); falling back to HF backend.", device,
+        )
+        name = "hf"
+
     if name == "vllm":
-        if not vllm_supported(device):
-            raise RuntimeError(
-                "vLLM backend was requested but is not available on this GPU (e.g. V100/sm_70). "
-                "Refusing to silently fall back to HF. Please configure the correct backend."
-            )
         quant = "bitsandbytes" if load_in_8bit else None
         logger.info("Using vLLM backend for '%s' on %s.", model_id, device)
         return VLLMBackend(model_id=model_id, device=device, dtype=dtype, quantization=quant)

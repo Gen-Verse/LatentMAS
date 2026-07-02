@@ -83,6 +83,19 @@ communication:
   # (cc>=8.0); on V100/sm_70 it transparently falls back to HF.
   backend: auto
 benchmarks:
+  flores_plus:
+    # Real translation-quality scoring against the FLORES+ gold reference, wired via
+    # shared/metrics.py::compute_chrf/compute_xcomet/compute_cometkiwi. xcomet/cometkiwi
+    # load multi-GB gated checkpoints (Unbabel/XCOMET-XL, Unbabel/wmt23-cometkiwi-da-xl)
+    # so they're opt-in; chrf is cheap and on by default.
+    translation_metrics:
+      chrf: true
+      xcomet: true
+      cometkiwi: true
+    # 50/language x 6 languages x 3 comm-modes fits a ~4-5h budget on 1x V100 (see
+    # dev_doc.md Section 5's cost model). bleu/sfr_ifl/language_consistency are added
+    # post-hoc via scripts/compute_posthoc_metrics.py after the run completes.
+    n_samples_per_language: 50
   sea_vision:
     enabled: true
     n_samples_per_language: 200

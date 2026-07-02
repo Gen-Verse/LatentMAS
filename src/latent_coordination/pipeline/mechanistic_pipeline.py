@@ -907,17 +907,28 @@ class MechanisticPipeline:
                 # Apply first steering vector to get steered logits
                 if steering_vectors_dict and layer_ids:
                     first_lang = next(iter(steering_vectors_dict))
-                    sv = steering_vectors_dict[first_lang].get("mean_diff", {})
+                    # steering_vectors_dict[lang]["mean_diff"] is a SteeringVectors dataclass
+                    # (layer_ids/vectors/method/metadata), not a plain {layer_id: Tensor}
+                    # dict -- unwrap .vectors to get the actual per-layer mapping.
+                    sv_obj = steering_vectors_dict[first_lang].get("mean_diff")
+                    sv = sv_obj.vectors if sv_obj is not None else {}
                     first_lid = layer_ids[0]
                     if first_lid in sv:
                         hook_handles = []
-                        sv_vec = sv[first_lid].float().to(self._model.device)
+                        # `self._model.device` is the *first* shard's device under
+                        # device_map="auto"; the target layer's actual activations can live
+                        # on a different shard (e.g. cuda:4 vs cuda:1), so move the steering
+                        # vector to the hidden state's device inside the hook rather than
+                        # pre-binding it to a possibly-wrong device.
+                        sv_vec_cpu = sv[first_lid].float().cpu()
 
                         def _steer_hook(module, inputs, output):
                             if isinstance(output, tuple):
                                 hs = output[0]
+                                sv_vec = sv_vec_cpu.to(device=hs.device, dtype=hs.dtype)
                                 hs = hs + sv_vec.unsqueeze(0).unsqueeze(0)
                                 return (hs,) + output[1:]
+                            sv_vec = sv_vec_cpu.to(device=output.device, dtype=output.dtype)
                             return output + sv_vec.unsqueeze(0).unsqueeze(0)
 
                         handle = self._model.model.layers[first_lid].register_forward_hook(_steer_hook)
@@ -959,16 +970,22 @@ class MechanisticPipeline:
                 # With steering hook applied
                 if steering_vectors_dict and layer_ids:
                     first_lang = next(iter(steering_vectors_dict))
-                    sv = steering_vectors_dict[first_lang].get("mean_diff", {})
+                    # steering_vectors_dict[lang]["mean_diff"] is a SteeringVectors dataclass
+                    # (layer_ids/vectors/method/metadata), not a plain {layer_id: Tensor}
+                    # dict -- unwrap .vectors to get the actual per-layer mapping.
+                    sv_obj = steering_vectors_dict[first_lang].get("mean_diff")
+                    sv = sv_obj.vectors if sv_obj is not None else {}
                     first_lid = layer_ids[0]
                     if first_lid in sv:
-                        sv_vec = sv[first_lid].float().to(self._model.device)
+                        # See the logit-based-plots block above: bind to the layer's actual
+                        # device inside the hook, not `self._model.device` (the first shard).
+                        sv_vec_cpu = sv[first_lid].float().cpu()
 
                         def _hook2(module, inputs, output):
                             if isinstance(output, tuple):
-                                hs = output[0] + sv_vec.unsqueeze(0).unsqueeze(0)
+                                hs = output[0] + sv_vec_cpu.to(device=output[0].device, dtype=output[0].dtype).unsqueeze(0).unsqueeze(0)
                                 return (hs,) + output[1:]
-                            return output + sv_vec.unsqueeze(0).unsqueeze(0)
+                            return output + sv_vec_cpu.to(device=output.device, dtype=output.dtype).unsqueeze(0).unsqueeze(0)
 
                         handle = self._model.model.layers[first_lid].register_forward_hook(_hook2)
                         with torch.no_grad():

@@ -50,5 +50,7 @@ venv.bak/
 /outputs/
 /multilingual-latent-reasoner/
 /.claude/
-/update_header.py
+/update_headers.py
 /update_headers2.py
+/.agents
+/example_logs/

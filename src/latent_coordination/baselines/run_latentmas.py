@@ -39,6 +39,10 @@ from typing import Dict, List, Optional, Tuple
 import torch
 
 from latent_coordination.baselines.latent_mas import LatentMASBaseline
+from latent_coordination.baselines.latent_prefix import (
+    build_latent_prefix,
+    generate_with_latent_prefix,
+)
 from latent_coordination.eval.correctness import (
     BenchmarkCorrectnessReport,
     CorrectnessResult,
@@ -193,26 +197,36 @@ def run_mgsm(config: LatentMASRunConfig) -> LatentMASRunReport:
         step1_text, n1 = _generate_text(model, tokenizer, step1_prompt, config)
         total_tokens += n1
 
-        # Attempt to share hidden state to Agent 2 (homogeneous: same model).
+        # Share hidden state to Agent 2 (homogeneous: same model). The shared
+        # vector is injected into Agent 2's generation as a soft prefix token —
+        # this is what distinguishes LatentMAS (raw last-layer state) from
+        # ThoughtComm (shared-component reconstruction) on the same workload.
+        shared: Optional[torch.Tensor] = None
         try:
             hidden = _extract_last_hidden(model, tokenizer, step1_text, config.device)
-            _ = baseline.share_hidden_state(hidden.unsqueeze(0), hidden_dim)
+            shared = baseline.share_hidden_state(hidden.unsqueeze(0), hidden_dim)
             baseline.update_kv_memory(hidden.unsqueeze(0))
         except ValueError as exc:
             logger.warning("LatentMAS heterogeneous error (task %s): %s", task.get("question", "")[:40], exc)
             n_hetero_errors += 1
 
-        # Agent 2: final answer, conditioned on step1 reasoning text (token fallback,
-        # since the model is homogeneous and hidden-state injection doesn't change logits
-        # in this simplified runner — full injection requires custom forward hooks).
+        # Agent 2: final answer, conditioned on [shared latent] + step1 text
+        # (text-only on the documented heterogeneous-failure path).
         step2_prompt = f"{step1_prompt}\n{step1_text}\nFinal numeric answer:"
-        step2_text, n2 = _generate_text(model, tokenizer, step2_prompt, config)
+        step2_text, n2 = generate_with_latent_prefix(
+            model, tokenizer, step2_prompt, shared, config.device, config.max_new_tokens,
+        )
         total_tokens += n2
 
         result = score_mgsm(step2_text, float(task["answer"]))
         results.append(result)
         token_costs.append(total_tokens)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
+        logger.info(
+            "MGSM task %d/%d | lang=%s | task_s=%.1f | running_acc=%.3f",
+            len(results), len(tasks), config.language,
+            latencies_ms[-1] / 1000, sum(r.is_correct for r in results) / len(results),
+        )
 
     total_wall = time.perf_counter() - t_total_start
     n_correct = sum(r.is_correct for r in results)
@@ -261,26 +275,37 @@ def run_belebele(config: LatentMASRunConfig) -> LatentMASRunReport:
         step1_text, n1 = _generate_text(model, tokenizer, passage_prompt, config)
         total_tokens += n1
 
+        shared: Optional[torch.Tensor] = None
         try:
             hidden = _extract_last_hidden(model, tokenizer, step1_text, config.device)
-            _ = baseline.share_hidden_state(hidden.unsqueeze(0), hidden_dim)
+            shared = baseline.share_hidden_state(hidden.unsqueeze(0), hidden_dim)
             baseline.update_kv_memory(hidden.unsqueeze(0))
         except ValueError as exc:
             logger.warning("LatentMAS heterogeneous error: %s", exc)
             n_hetero_errors += 1
 
-        # Agent 2: select the answer via log-likelihood over the choices.
+        # Agent 2: select the answer via log-likelihood over the choices,
+        # conditioned on the injected shared latent (soft prefix) + analysis text.
         answer_prompt = (
             f"Passage: {task['passage']}\n"
             f"Question: {task['question']}\n"
             f"Analysis: {step1_text}\n"
             f"Answer:"
         )
+        prefix_embeds = None
+        if shared is not None:
+            with torch.no_grad():
+                prompt_ids = tokenizer(
+                    answer_prompt, return_tensors="pt", truncation=True, max_length=1024,
+                )["input_ids"].to(config.device)
+                prompt_embeds = model.get_input_embeddings()(prompt_ids)
+                prefix_embeds = build_latent_prefix(shared, prompt_embeds)
         result = scorer.score_multiple_choice(
             prompt=answer_prompt,
             choices=task["choices"],
             gold_idx=task["correct_idx"],
             benchmark="belebele",
+            prefix_embeds=prefix_embeds,
         )
         # Count answer choice tokens as cost proxy.
         total_tokens += sum(
@@ -290,6 +315,11 @@ def run_belebele(config: LatentMASRunConfig) -> LatentMASRunReport:
         results.append(result)
         token_costs.append(total_tokens)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
+        logger.info(
+            "Belebele task %d/%d | lang=%s | task_s=%.1f | running_acc=%.3f",
+            len(results), len(tasks), config.language,
+            latencies_ms[-1] / 1000, sum(r.is_correct for r in results) / len(results),
+        )
 
     total_wall = time.perf_counter() - t_total_start
     n_correct = sum(r.is_correct for r in results)

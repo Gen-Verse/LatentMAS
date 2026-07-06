@@ -46,6 +46,35 @@ QUERY_EMBED_DIM = 64
 TOPOLOGY_ROLE_ORDER = ("translation", "reasoning", "safety")
 TOPOLOGY_ROLE_INDEX = {role: i for i, role in enumerate(TOPOLOGY_ROLE_ORDER)}
 
+# Role → descriptor vocabulary used to seed each AttentionRouter key. No stage of
+# the pipeline trains the attention router (Stage D only fits the k-means path),
+# so its previous randomly-initialised keys produced ~0.01-magnitude logits and
+# an exactly-uniform softmax: every one of the ~14k routing decisions in the
+# 20260705 bench_suite runs logged confidence in [0.333, 0.341] and dispatched
+# all three roles — the "adaptive" router was a constant. Seeding each key with
+# the hashed-BoW embedding of its role's vocabulary (the SAME encode_query_bow
+# space route() embeds queries into) gives the untrained router a real,
+# deterministic routing signal. A query with no lexical overlap with any
+# prototype (e.g. non-Latin script) still degrades to near-uniform weights and
+# full-chain dispatch — the safe fallback.
+ROLE_KEY_PROTOTYPES: Dict[str, str] = {
+    "translation": (
+        "translate translation language english meaning word phrase sentence "
+        "multilingual foreign script text say written"
+    ),
+    "reasoning": (
+        "question answer which what why how passage according following correct "
+        "reason solve explain calculate conclusion best statement true"
+    ),
+    "safety": (
+        "safe unsafe harmful violence hate threat weapon attack kill dangerous "
+        "illegal explicit harassment moderation risk toxic"
+    ),
+    "orchestrator": (
+        "plan coordinate orchestrate schedule assign delegate manage route"
+    ),
+}
+
 
 def encode_query_bow(text: str, dim: int = QUERY_EMBED_DIM) -> Tensor:
     """Deterministic hashed bag-of-words query embedding (L2-normalised float)."""
@@ -110,14 +139,28 @@ class AttentionRouter(nn.Module):
         self,
         query_dim: int,
         roles: List[str],
-        temperature: float = 1.0,
+        temperature: float = 0.15,
     ) -> None:
         super().__init__()
         self.roles = roles
         self.temperature = temperature
-        n_roles = len(roles)
-        self.keys = nn.Parameter(torch.randn(n_roles, query_dim) * 0.02)
+        # Keys are seeded from the role-descriptor prototypes so the router
+        # discriminates without a training loop (none exists in the pipeline;
+        # random keys made the softmax exactly uniform — see ROLE_KEY_PROTOTYPES).
+        # Roles without a prototype fall back to hashing the role name itself,
+        # which is still deterministic across processes.
+        self.keys = nn.Parameter(torch.stack([
+            encode_query_bow(ROLE_KEY_PROTOTYPES.get(role, role), dim=query_dim)
+            for role in roles
+        ]))
+        # Identity init (not the default Kaiming-uniform random matrix): at
+        # init the score must be exactly cos(query, prototype). A random
+        # projection scrambled the query before it ever met the keys, which is
+        # half of what flattened the old logits to ~0.01. Kept as a Linear so a
+        # future training stage can still learn a better projection.
         self.query_proj = nn.Linear(query_dim, query_dim, bias=False)
+        with torch.no_grad():
+            self.query_proj.weight.copy_(torch.eye(query_dim))
 
     def forward(self, query_emb: Tensor) -> Tuple[Tensor, Tensor]:
         """Compute soft role distribution and confidence.
@@ -132,9 +175,14 @@ class AttentionRouter(nn.Module):
         """
         if query_emb.dim() == 1:
             query_emb = query_emb.unsqueeze(0)
-        q = self.query_proj(query_emb.float())  # (1, D)
-        k = F.normalize(self.keys, dim=-1)       # (R, D)
-        scores = (q @ k.T) / (self.temperature * (q.shape[-1] ** 0.5))  # (1, R)
+        # Cosine similarity over temperature. The old scaled-dot-product form
+        # additionally divided by sqrt(query_dim) — correct for unnormalised
+        # attention logits, but here BOTH sides are unit vectors, so scores
+        # already live in [-1, 1] and the extra /8 damping (query_dim=64)
+        # guaranteed a uniform softmax no matter what the keys contained.
+        q = F.normalize(self.query_proj(query_emb.float()), dim=-1)  # (1, D)
+        k = F.normalize(self.keys, dim=-1)                           # (R, D)
+        scores = (q @ k.T) / self.temperature  # (1, R)
         weights = F.softmax(scores, dim=-1).squeeze(0)  # (R,)
         confidence = float(weights.max().item())
         return weights, torch.tensor(confidence)
@@ -188,7 +236,12 @@ class AdaptiveOrchestrator:
     def __setstate__(self, state: dict) -> None:
         """Backward-compatible unpickling for checkpoints missing newer attributes."""
         state.setdefault("router_type", "kmeans")
-        state.setdefault("_attention_router", None)
+        # Always rebuild the attention router instead of restoring the pickled
+        # one: nothing ever trains it, so dropping it loses no learned state,
+        # while a stage_a checkpoint written before the prototype-key fix would
+        # resurrect the old random-key module (uniform softmax) — or worse, run
+        # random keys through the new sharper temperature and route arbitrarily.
+        state["_attention_router"] = None
         state.setdefault("recursive_core", None)
         state.setdefault("drift_probe", None)
         state.setdefault("topology_prior", None)

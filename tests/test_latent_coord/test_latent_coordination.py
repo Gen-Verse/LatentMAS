@@ -255,6 +255,48 @@ def test_attention_router_dispatch_returns_roles():
         assert r in roles
 
 
+def test_attention_router_discriminates_between_intents():
+    """Regression: untrained random keys made the softmax exactly uniform.
+
+    Every routing decision in the 20260705 bench_suite runs logged confidence
+    in [0.333, 0.341] and dispatched all roles — the router was a constant.
+    With prototype-seeded keys, role-relevant queries must route with real
+    confidence, and different intents must produce different weight vectors.
+    """
+    from latent_coordination.orchestration.router import (
+        AttentionRouter, encode_query_bow, QUERY_EMBED_DIM,
+    )
+    roles = ["translation", "reasoning", "safety"]
+    router = AttentionRouter(query_dim=QUERY_EMBED_DIM, roles=roles)
+
+    q_reason = encode_query_bow(
+        "Which of the following is the correct answer to the question about the passage?"
+    )
+    q_translate = encode_query_bow(
+        "Translate this sentence into English and explain the meaning of each word."
+    )
+    w_reason, conf_reason = router(q_reason)
+    w_translate, conf_translate = router(q_translate)
+
+    assert float(conf_reason) > 0.40, "reasoning-intent query should route confidently"
+    assert float(conf_translate) > 0.40, "translation-intent query should route confidently"
+    assert int(w_reason.argmax()) == roles.index("reasoning")
+    assert int(w_translate.argmax()) == roles.index("translation")
+
+
+def test_attention_router_uniform_fallback_without_lexical_overlap():
+    """A query sharing no vocabulary with any role prototype (non-Latin script)
+    must degrade toward uniform weights so the full chain stays dispatched."""
+    from latent_coordination.orchestration.router import (
+        AttentionRouter, encode_query_bow, QUERY_EMBED_DIM,
+    )
+    roles = ["translation", "reasoning", "safety"]
+    router = AttentionRouter(query_dim=QUERY_EMBED_DIM, roles=roles)
+    q = encode_query_bow("ตามข้อความข้างต้น ข้อใดคือคำตอบที่ถูกต้อง")
+    selected, conf = router.dispatch(q, threshold=0.1)
+    assert len(selected) == len(roles), "no-signal query must keep the full chain"
+
+
 def test_adaptive_orchestrator_attention_route():
     from latent_coordination.orchestration.router import AdaptiveOrchestrator
     from latent_coordination.agents.base_agent import AgentConfig, AgentTask

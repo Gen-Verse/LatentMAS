@@ -139,19 +139,36 @@ def _log_likelihood(
     prompt: str,
     continuation: str,
     device: str = "cpu",
+    prefix_embeds: Optional[torch.Tensor] = None,
 ) -> float:
-    """Teacher-forced log-likelihood of ``continuation`` conditioned on ``prompt``."""
+    """Teacher-forced log-likelihood of ``continuation`` conditioned on ``prompt``.
+
+    ``prefix_embeds`` (1, K, D) optionally prepends soft prefix tokens (e.g. a
+    communicated latent from a MAS baseline) ahead of the prompt embeddings, so
+    the conditioning context is ``[prefix] + prompt``. With K=0/None this is
+    numerically identical to the plain input_ids path.
+    """
     full = prompt + continuation
     enc_full = tokenizer(full, return_tensors="pt", truncation=True, max_length=1024)
     enc_prompt = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
     n_prompt_tokens = enc_prompt["input_ids"].shape[1]
 
     input_ids = enc_full["input_ids"].to(device)
+    n_prefix = 0
     with torch.no_grad():
-        outputs = model(input_ids=input_ids, labels=input_ids)
-        # Manually compute per-token NLL for continuation tokens only.
-        logits = outputs.logits  # (1, T, V)
-    shift_logits = logits[0, :-1]  # (T-1, V)
+        if prefix_embeds is not None and prefix_embeds.shape[1] > 0:
+            n_prefix = prefix_embeds.shape[1]
+            token_embeds = model.get_input_embeddings()(input_ids)
+            embeds = torch.cat(
+                [prefix_embeds.to(device=token_embeds.device, dtype=token_embeds.dtype),
+                 token_embeds], dim=1,
+            )
+            logits = model(inputs_embeds=embeds).logits  # (1, K+T, V)
+        else:
+            logits = model(input_ids=input_ids).logits  # (1, T, V)
+    T = input_ids.shape[1]
+    # Logits at position n_prefix + t - 1 predict token t (t >= 1).
+    shift_logits = logits[0, n_prefix:n_prefix + T - 1]  # (T-1, V)
     shift_labels = input_ids[0, 1:]  # (T-1,)
     log_probs = torch.log_softmax(shift_logits.float(), dim=-1)
     token_lls = log_probs[range(len(shift_labels)), shift_labels]
@@ -219,6 +236,7 @@ class CorrectnessScorer:
         choices: Sequence[str],
         gold_idx: int,
         benchmark: str = "mmlu_prox",
+        prefix_embeds: Optional[torch.Tensor] = None,
     ) -> CorrectnessResult:
         """Score a multiple-choice question by teacher-forced log-likelihood.
 
@@ -232,6 +250,8 @@ class CorrectnessScorer:
         choices   : list of choice strings (e.g. ["A. Paris", "B. London", ...])
         gold_idx  : 0-based index of the correct choice
         benchmark : "mmlu_prox" (10 choices) or "belebele" (4 choices)
+        prefix_embeds : optional (1, K, D) soft prefix (communicated latent)
+                        prepended to the prompt for every choice's forward pass
         """
         if self.model is None or self.tokenizer is None:
             raise RuntimeError(
@@ -239,7 +259,8 @@ class CorrectnessScorer:
             )
         self.model.eval()
         lls = [
-            _log_likelihood(self.model, self.tokenizer, prompt, choice, self.device)
+            _log_likelihood(self.model, self.tokenizer, prompt, choice, self.device,
+                            prefix_embeds=prefix_embeds)
             for choice in choices
         ]
         pred_idx = int(max(range(len(lls)), key=lambda i: lls[i]))

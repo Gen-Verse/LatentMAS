@@ -30,6 +30,38 @@ __status__ = "prototype"
 logger = logging.getLogger(__name__)
 
 
+def _code_regime() -> Dict[str, str]:
+    """Fingerprint of the code that produced a result, stamped into every mode
+    cache and report. The bench-suite driver retries a crashed run with whatever
+    is on disk, so without this stamp, pre-fix (uniform-router) and post-fix
+    (prototype-seeded adaptive router) results are indistinguishable once cached.
+    """
+    import subprocess
+    repo_root = Path(__file__).resolve().parents[3]
+    regime: Dict[str, str] = {}
+    try:
+        regime["git_sha"] = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=repo_root,
+            capture_output=True, text=True, timeout=10, check=True,
+        ).stdout.strip()
+        dirty = subprocess.run(
+            ["git", "status", "--porcelain"], cwd=repo_root,
+            capture_output=True, text=True, timeout=10, check=True,
+        ).stdout.strip()
+        regime["git_dirty"] = "yes" if dirty else "no"
+    except Exception:
+        regime["git_sha"] = "unknown"
+    try:
+        import latent_coordination.orchestration.router as _router_mod
+        regime["router"] = (
+            "prototype-seeded" if hasattr(_router_mod, "ROLE_KEY_PROTOTYPES")
+            else "uniform-random-keys"
+        )
+    except Exception:
+        regime["router"] = "unknown"
+    return regime
+
+
 @dataclass
 class MultiAgentBenchmarkReport:
     """Contains results of multi-agent evaluations against standard baselines."""
@@ -261,6 +293,16 @@ class MultiAgentBenchmarkRunner:
                 )
                 correct_by_bench["belebele"] = report.n_correct
                 metrics["accuracy_belebele"] = report.accuracy
+                # The log-likelihood probe above is answer-independent — it scores
+                # the scoring agent's *model*, not what this comm-mode generated,
+                # so it cannot separate comm-modes. Also score the mode's actual
+                # generated answers so mode-vs-mode Belebele deltas are real.
+                n_gen_correct = sum(
+                    1 for ans, task in by_bench.get("belebele", [])
+                    if self._parse_option_number(getattr(ans, "output_text", None) or str(ans))
+                    == task.metadata["correct_idx"] + 1
+                )
+                metrics["accuracy_belebele_generative"] = n_gen_correct / totals["belebele"]
             elif scoring == "generative":
                 n_correct = sum(
                     1 for ans, task in by_bench.get("belebele", [])
@@ -672,7 +714,9 @@ class MultiAgentBenchmarkRunner:
             task_details[mode] = details
             if checkpoint_manager is not None and cache_key:
                 checkpoint_manager.cache_result(
-                    cache_key, {"metrics": metrics, "task_details": details}
+                    cache_key,
+                    {"metrics": metrics, "task_details": details,
+                     "code_regime": _code_regime()},
                 )
                 # The per-chunk partial state has been fully superseded by the
                 # completed-mode cache above; drop it so a future run doesn't
@@ -685,7 +729,8 @@ class MultiAgentBenchmarkRunner:
             timestamp=ts,
             results_by_mode=results,
             task_details=task_details,
-            metadata={"n_tasks": len(tasks), "modes": modes, "token_backend": token_backend},
+            metadata={"n_tasks": len(tasks), "modes": modes, "token_backend": token_backend,
+                      "code_regime": _code_regime()},
         )
         out_path = self.output_dir / f"multiagent_benchmark_{ts}.json"
         report.save_json(out_path)
@@ -828,10 +873,27 @@ class MultiAgentBenchmarkRunner:
         from shared.data.dataset_loader import DatasetLoader
 
         loader = DatasetLoader()
+        # SAMPLING SEMANTICS: ``n_samples`` here is a TOTAL cap split across the
+        # configured languages (200 with th+my -> 100/lang), unlike Belebele's
+        # ``n_samples`` which is per-language. ``n_samples_per_language`` makes
+        # per-language intent explicit; changing an existing config between the
+        # two invalidates comparability with its earlier runs.
+        n_per_lang = cfg.get("n_samples_per_language")
+        if n_per_lang is not None:
+            max_samples = int(n_per_lang) * len(cfg.get("languages") or [])
+        else:
+            max_samples = cfg.get("n_samples")
         samples = loader.load_sea_safeguardbench(
             languages=cfg.get("languages"),
-            max_samples=cfg.get("n_samples"),
+            max_samples=max_samples,
             repo_id=cfg.get("repo_id"),  # loader raises without one — no default repo exists
+        )
+        per_lang_counts: Dict[str, int] = {}
+        for s in samples:
+            per_lang_counts[s.language] = per_lang_counts.get(s.language, 0) + 1
+        logger.info(
+            "SEA-SafeguardBench sampling: total cap=%s -> per-language n=%s "
+            "(report these n, not the config value)", max_samples, per_lang_counts,
         )
         # "n" / "non-toxic": SEA-HELM Safety-Toxicity-Detection labels rows
         # Y (toxic) / N (non-toxic); its Burmese config labels in Burmese script

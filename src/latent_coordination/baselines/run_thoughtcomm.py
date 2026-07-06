@@ -34,6 +34,10 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn.functional as F
 
+from latent_coordination.baselines.latent_prefix import (
+    build_latent_prefix,
+    generate_with_latent_prefix,
+)
 from latent_coordination.baselines.thoughtcomm import ThoughtCommBaseline, ThoughtCommConfig
 from latent_coordination.eval.correctness import (
     BenchmarkCorrectnessReport,
@@ -200,13 +204,16 @@ def run_mgsm(config: ThoughtCommRunConfig) -> ThoughtCommRunReport:
         hidden1 = _extract_last_hidden(model, tokenizer, text1, config.device)
         with torch.no_grad():
             # Agent 1 → Agent 2: transfer the shared thought component.
-            _, sparse_loss = tc.communicate("agent1", "agent2", hidden1.unsqueeze(0))
+            reconstructed, sparse_loss = tc.communicate("agent1", "agent2", hidden1.unsqueeze(0))
 
-        # Agent 2: final answer conditioned on step1 reasoning text.
-        # (Full hidden-injection would require custom forward hooks; the key metric
-        # here is accuracy + token cost delta vs. the LatentMAS baseline.)
+        # Agent 2: final answer conditioned on [reconstructed shared thought]
+        # injected as a soft prefix + step1 reasoning text. This is what makes
+        # ThoughtComm's mechanism (shared/private decomposition) actually reach
+        # the receiving agent, distinguishing it from LatentMAS's raw-state share.
         prompt2 = f"{prompt1}\n{text1}\nFinal numeric answer:"
-        text2, n2 = _generate_text(model, tokenizer, prompt2, config)
+        text2, n2 = generate_with_latent_prefix(
+            model, tokenizer, prompt2, reconstructed, config.device, config.max_new_tokens,
+        )
         total_tokens += n2
 
         result = score_mgsm(text2, float(task["answer"]))
@@ -268,17 +275,24 @@ def run_belebele(config: ThoughtCommRunConfig) -> ThoughtCommRunReport:
 
         hidden1 = _extract_last_hidden(model, tokenizer, text1, config.device)
         with torch.no_grad():
-            _, _ = tc.communicate("agent1", "agent2", hidden1.unsqueeze(0))
+            reconstructed, _ = tc.communicate("agent1", "agent2", hidden1.unsqueeze(0))
 
         answer_prompt = (
             f"Passage: {task['passage']}\nQuestion: {task['question']}\n"
             f"Analysis: {text1}\nAnswer:"
         )
+        with torch.no_grad():
+            prompt_ids = tokenizer(
+                answer_prompt, return_tensors="pt", truncation=True, max_length=1024,
+            )["input_ids"].to(config.device)
+            prompt_embeds = model.get_input_embeddings()(prompt_ids)
+            prefix_embeds = build_latent_prefix(reconstructed, prompt_embeds)
         result = scorer.score_multiple_choice(
             prompt=answer_prompt,
             choices=task["choices"],
             gold_idx=task["correct_idx"],
             benchmark="belebele",
+            prefix_embeds=prefix_embeds,
         )
         total_tokens += sum(
             len(tokenizer(c, add_special_tokens=False)["input_ids"])

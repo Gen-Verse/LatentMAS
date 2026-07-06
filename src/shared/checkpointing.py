@@ -14,6 +14,15 @@ from typing import Any
 
 import torch
 
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
+
 logger = logging.getLogger(__name__)
 
 
@@ -150,3 +159,10 @@ class CheckpointManager:
         payload = torch.load(path, map_location="cpu", weights_only=False)
         logger.info("Loaded cached result | key=%s", key)
         return payload["obj"]
+
+    def delete_result(self, key: str) -> None:
+        """Remove a cached per-unit result, if present. No-op if absent."""
+        path = self._cache_path(key)
+        if path.exists():
+            path.unlink()
+            logger.info("Deleted cached result | key=%s", key)

@@ -24,12 +24,17 @@ import logging
 import os
 from typing import List, Optional, Protocol, Sequence
 
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
+
 logger = logging.getLogger(__name__)
 
-__author__ = "Himon Thakur"
-__license__ = "Apache 2.0"
-__version__ = "0.1.0"
-__status__ = "prototype"
 
 __all__ = [
     "GenerationBackend",
@@ -225,37 +230,53 @@ def resolve_backend(
     hf_tokenizer=None,
     output_hidden_states: bool = False,
 ) -> GenerationBackend:
-    """Return a ready backend honoring the V100/sm_70 gate.
-
-    Parameters
-    ----------
-    name : {"auto", "hf", "vllm"}
-        ``auto`` picks vLLM when supported, else HF. ``vllm`` on an unsupported GPU logs a
-        warning and falls back to HF (never raises).
-    hf_model, hf_tokenizer :
-        If provided (and HF is selected), reuse an already-loaded model instead of reloading.
-    """
+    """Return a ready backend honoring task suitability and hardware availability."""
     name = (name or "auto").lower()
-    want_vllm = name == "vllm" or (name == "auto" and vllm_supported(device))
 
-    if want_vllm:
-        if vllm_supported(device):
-            quant = "bitsandbytes" if load_in_8bit else None
-            logger.info("Using vLLM backend for '%s' on %s.", model_id, device)
-            return VLLMBackend(model_id=model_id, device=device, dtype=dtype, quantization=quant)
-        logger.warning(
-            "vLLM requested but unavailable on this GPU (likely V100/sm_70); using HF backend."
+    # Auto-select based on task suitability
+    if name == "auto":
+        if output_hidden_states:
+            name = "hf"
+            logger.info("Auto-selected HF backend because output_hidden_states=True is required for this task.")
+        elif vllm_supported(device):
+            name = "vllm"
+            logger.info("Auto-selected vLLM backend for fast text-only generation.")
+        else:
+            name = "hf"
+            logger.info("Auto-selected HF backend because vLLM is not supported/available on this hardware.")
+
+    # Validate task suitability against explicit backend requests
+    if name == "vllm" and output_hidden_states:
+        raise ValueError("vLLM backend does not support output_hidden_states=True. Please use the HF backend for latent state extraction tasks.")
+
+    if name == "vllm" and not vllm_supported(device):
+        # Per the module contract above: unsupported hardware/missing install falls
+        # back to HF with a clear log line rather than crashing -- vLLM is a pure
+        # speed optimization for token-only generation, HF is always a valid substitute
+        # for that (unlike the output_hidden_states case above, which is a hard error
+        # because HF and vLLM are not interchangeable for latent-access tasks).
+        logger.info(
+            "vLLM backend was requested but is not available on %s (e.g. V100/sm_70, or "
+            "vllm not installed); falling back to HF backend.", device,
         )
+        name = "hf"
 
-    # HF backend (default / fallback).
-    if hf_model is not None and hf_tokenizer is not None:
-        return HFBackend(hf_model, hf_tokenizer, device=device)
-    from shared.model_loader import ModelLoadSpec
-    spec = ModelLoadSpec(
-        model_id=model_id,
-        device=device,
-        dtype=dtype,
-        load_in_8bit=load_in_8bit,
-        output_hidden_states=output_hidden_states,
-    )
-    return HFBackend.from_spec(spec)
+    if name == "vllm":
+        quant = "bitsandbytes" if load_in_8bit else None
+        logger.info("Using vLLM backend for '%s' on %s.", model_id, device)
+        return VLLMBackend(model_id=model_id, device=device, dtype=dtype, quantization=quant)
+
+    if name == "hf":
+        if hf_model is not None and hf_tokenizer is not None:
+            return HFBackend(hf_model, hf_tokenizer, device=device)
+        from shared.model_loader import ModelLoadSpec
+        spec = ModelLoadSpec(
+            model_id=model_id,
+            device=device,
+            dtype=dtype,
+            load_in_8bit=load_in_8bit,
+            output_hidden_states=output_hidden_states,
+        )
+        return HFBackend.from_spec(spec)
+        
+    raise ValueError(f"Unknown backend requested: {name}")

@@ -36,6 +36,51 @@ for L in "${langs[@]}"; do
 - run the **whole pipeline** (optional fine-tuning → evaluation) from one config:
   `./scripts/run_pipeline.sh` (see `configs/pipeline.env`).
 
+## 🧭 Latent Coordination / Mechanistic / Surgical pipelines
+
+Beyond `run.py`'s single-model baseline/text_mas/latent_mas methods above, `src/`
+hosts three larger research pipelines with their own config-driven CLI runners. See
+`dev_doc.md` for the full architecture, evaluation-matrix, metrics, and a comprehensive
+test-combination list with time estimates -- this section is just the "how do I run it"
+quick reference.
+
+*   **Decentralized multi-agent coordination** (`src/latent_coordination/`) --
+    CVAE topology priors + universal latent-space hub + token/latent/hybrid agent
+    communication:
+    ```bash
+    python scripts/run_coordination_pipeline.py --config configs/latent_coordination.yaml
+    # tiny/fast smoke test (single GPU, minutes not hours):
+    python scripts/run_coordination_pipeline.py --config configs/coordination_smoketest.yaml
+    # genuinely cross-architecture agent pool (llama / qwen2 / cohere), not
+    # same-arch-different-checkpoint:
+    python scripts/run_coordination_pipeline.py --config configs/latent_coordination_heterogeneous.yaml
+    ```
+*   **Mechanistic disentanglement** (`src/mechanistic_disentangle/`, orchestrated via
+    `src/latent_coordination/pipeline/mechanistic_pipeline.py`) -- lexicon extraction,
+    SVD decomposition, isomorphism probes, Gaussian-scheduled steering:
+    ```bash
+    python scripts/run_mechanistic_pipeline.py --config configs/mechanistic_smoketest.yaml
+    python scripts/run_mechanistic_pipeline.py --config configs/mechanistic_smoketest.yaml --stages A,B,C
+    ```
+*   **Surgical MRRE** (`src/mrre_drift/`) -- hidden-state mapping, logit-lens collapse
+    detection, MRRE-drift correction, IFL validation:
+    ```bash
+    python scripts/run_surgical_pipeline.py --config configs/surgical_smoketest.yaml
+    ```
+*   **Homogeneous baselines** with a standalone CLI (no coordination-pipeline config
+    needed):
+    ```bash
+    python -m latent_coordination.baselines.run_latentmas --model_id Qwen/Qwen2.5-7B-Instruct --benchmark mgsm --language en
+    python -m latent_coordination.baselines.run_thoughtcomm --model_id Qwen/Qwen2.5-7B-Instruct --benchmark belebele --language th
+    ```
+*   **Enumerate/validate what's actually runnable** -- `src/shared/combinations.py` is
+    the single source of truth for which (model, baseline, benchmark, language, metric)
+    combinations are valid (most of the cartesian product isn't):
+    ```bash
+    python scripts/list_combinations.py --benchmark belebele --language th
+    python scripts/list_combinations.py --check Qwen/Qwen2.5-7B-Instruct LatentMASBaseline mgsm th exact_match
+    ```
+
 - how to observe **latent space** (analysis code lives under `src/`; run from the repo root):
 ```
 python src/multilingual-latent-reasoning/run_latent_mas_agent_similarity.py \
@@ -292,21 +337,39 @@ LatentMAS/
 │   ├── unsloth_train.yaml # Unsloth fine-tuning config
 │   └── llamacpp.yaml      # llama.cpp backend reference config
 │── scripts/
-│   ├── run_pipeline.sh    # End-to-end: optional training -> evaluation
-│   ├── run_mgsm_all.sh    # Sweep LatentMAS over MGSM languages
-│   └── run_mgsm_text_mas.sh
+│   ├── run_pipeline.sh                # End-to-end: optional training -> evaluation
+│   ├── run_mgsm_all.sh                # Sweep LatentMAS over MGSM languages
+│   ├── run_mgsm_text_mas.sh
+│   ├── run_coordination_pipeline.py   # Latent Coordination pipeline CLI
+│   ├── run_mechanistic_pipeline.py    # Mechanistic Disentanglement pipeline CLI
+│   ├── run_surgical_pipeline.py       # Surgical MRRE pipeline CLI
+│   └── list_combinations.py          # Enumerate/validate model x baseline x benchmark x language x metric
 │── prompts.py             # Prompt constructors
-│── data.py                # Dataset loaders
+│── data.py                # Dataset loaders (incl. laobench, sea_helm, mgsm_pro, mathmist)
 │── data/                  # Provided data + figures (We give medqa.json as an example here)
 │── utils.py               # Answer parsing / timeout / config loader / helpers
 │── example_logs/          # Example logs from LatentMAS
+│── configs/
+│   ├── latent_coordination.yaml               # Full decentralized-coordination run
+│   ├── latent_coordination_heterogeneous.yaml # Cross-architecture (llama/qwen2/cohere) agent pool
+│   ├── coordination_smoketest.yaml            # Fast single-GPU smoke test
+│   ├── mechanistic_smoketest.yaml
+│   └── surgical_smoketest.yaml
 │── src/
+│   ├── latent_coordination/   # Decentralized MAS hub: topology, orchestration, baselines, eval
+│   ├── mechanistic_disentangle/  # SVD/geometric analysis, Gaussian-scheduled steering
+│   ├── mrre_drift/            # Surgical MRRE: hidden-state mapping, drift correction
+│   ├── shared/                # Cross-pipeline infra: caching, metrics, combinations registry
 │   └── multilingual-latent-reasoning/   # Latent-reasoning analysis scripts (truncation,
 │                                        # logit lens, similarity); run from repo root
 │── multilingual-latent-reasoner/        # Git submodule (cisnlp/multilingual-latent-reasoner)
 │── pyproject.toml         # Packaging + optional extras (vllm / llamacpp / unsloth / all)
 │── requirements.txt
 ```
+
+> See `dev_doc.md` for the full architectural boundaries between `latent_coordination`/
+> `mechanistic_disentangle`/`shared`, the evaluation matrix, metric definitions, and a
+> comprehensive test-combination list with time estimates.
 
 > The analysis code under `src/multilingual-latent-reasoning/` adds the repo root to
 > `sys.path` itself, so launch those scripts from the repository root. The

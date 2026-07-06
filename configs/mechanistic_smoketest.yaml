@@ -1,0 +1,38 @@
+# Small-scale smoke-test config for the Mechanistic Disentanglement pipeline
+# (src/latent_coordination/pipeline/mechanistic_pipeline.py). Tiny sample counts so all
+# 8 stages (A-H) exercise real code paths in minutes.
+project:
+  output_dir: results/smoketest/mechanistic
+  seed: 42
+model:
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  batch_size: 2
+target_languages:
+- th
+- my
+lexicon:
+  n_pairs_per_language: 4
+svd_decomposition:
+  n_components: 4
+steering:
+  apply_subspace_projection: true
+  gaussian:
+    mu_frac: 0.60
+    sigma_frac: 0.15
+    alpha_0: 1.2
+    eta: 0.5
+benchmarks:
+  belebele:
+    n_samples_per_language: 2
+  sea_vision:
+    n_samples_per_language: 2
+  sea_vl:
+    n_samples_per_language: 2
+checkpointing:
+  interval_stages: 1
+logging:
+  level: INFO
+  log_dir: logs/smoketest

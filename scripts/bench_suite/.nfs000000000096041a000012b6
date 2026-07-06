@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# Benchmark-suite instance driver: runs each given config sequentially with
+# resume, retrying up to 3 attempts per config (checkpoints + the Stage-E
+# per-mode result cache make retries cheap). One instance owns the GPUs in
+# $2 via CUDA_VISIBLE_DEVICES; configs address them as cuda:0/1/2.
+#
+# Usage: run_instance.sh <instance_name> <gpu_ids> <config1.yaml> [config2.yaml ...]
+set -u
+INSTANCE=$1
+GPUS=$2
+shift 2
+
+export CUDA_VISIBLE_DEVICES=$GPUS
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+LOGDIR=logs/bench_suite
+mkdir -p "$LOGDIR"
+DRIVER_LOG="$LOGDIR/${INSTANCE}.driver.log"
+
+echo "[$(date -u +%FT%TZ)] instance=$INSTANCE gpus=$GPUS configs=$*" >> "$DRIVER_LOG"
+
+OVERALL_RC=0
+for CFG in "$@"; do
+  NAME=$(basename "$CFG" .yaml)
+  RC=1
+  for ATTEMPT in 1 2 3; do
+    echo "[$(date -u +%FT%TZ)] START cfg=$NAME attempt=$ATTEMPT" >> "$DRIVER_LOG"
+    python scripts/run_coordination_pipeline.py --config "$CFG" --resume \
+      >> "$LOGDIR/${NAME}.log" 2>&1
+    RC=$?
+    echo "[$(date -u +%FT%TZ)] END   cfg=$NAME attempt=$ATTEMPT exit=$RC" >> "$DRIVER_LOG"
+    [ "$RC" -eq 0 ] && break
+    sleep 60
+  done
+  if [ "$RC" -ne 0 ]; then
+    echo "[$(date -u +%FT%TZ)] GIVING UP on cfg=$NAME after 3 attempts" >> "$DRIVER_LOG"
+    OVERALL_RC=1
+  fi
+done
+
+echo "[$(date -u +%FT%TZ)] instance=$INSTANCE DONE rc=$OVERALL_RC" >> "$DRIVER_LOG"
+exit $OVERALL_RC

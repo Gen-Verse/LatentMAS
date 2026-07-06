@@ -1,7 +1,7 @@
 """
 Shared transformer layer resolution utilities.
 
-All three projects (surgical_mrre, mechanistic_disentangle, latent_coordination) need to
+All three projects (mrre_drift, latent_coordination, latent_coordination) need to
 locate the list of transformer decoder blocks inside a HuggingFace model.
 This module centralises that logic so divergence cannot occur.
 """
@@ -16,10 +16,11 @@ __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
 __credits__ = ["Himon Thakur"]
 __license__ = "Apache 2.0"
-__version__ = "0.1.0"
+__version__ = "0.0.1"
 __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
 
 # Attribute paths tried in order of preference.  Each entry is a dot-separated
 # path walked via getattr.  The first one that resolves to a non-empty sequence

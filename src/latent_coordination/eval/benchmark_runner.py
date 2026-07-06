@@ -263,6 +263,19 @@ class MultiAgentBenchmarkRunner:
             correct_by_bench["mgsm"] = n_correct
             metrics["accuracy_mgsm"] = n_correct / totals["mgsm"]
 
+        # --- AfriMGSM: exact-match on the extracted final number ---------
+        if totals.get("afrimgsm"):
+            from latent_coordination.eval.correctness import score_mgsm
+            n_correct = sum(
+                1 for ans, task in by_bench.get("afrimgsm", [])
+                if score_mgsm(
+                    getattr(ans, "output_text", None) or str(ans),
+                    float(task.metadata["gold_answer"]),
+                ).is_correct
+            )
+            correct_by_bench["afrimgsm"] = n_correct
+            metrics["accuracy_afrimgsm"] = n_correct / totals["afrimgsm"]
+
         # --- Belebele: 4-choice MCQA -------------------------------------
         if totals.get("belebele"):
             scoring = (
@@ -750,6 +763,8 @@ class MultiAgentBenchmarkRunner:
             tasks += self._load_flores_tasks()
         if self.benchmarks.get("mgsm", {}).get("enabled"):
             tasks += self._load_mgsm_agent_tasks(self.benchmarks["mgsm"])
+        if self.benchmarks.get("afrimgsm", {}).get("enabled"):
+            tasks += self._load_afrimgsm_agent_tasks(self.benchmarks["afrimgsm"])
         if self.benchmarks.get("belebele", {}).get("enabled"):
             tasks += self._load_belebele_agent_tasks(self.benchmarks["belebele"])
         if self.benchmarks.get("sea_vision", {}).get("enabled"):
@@ -809,6 +824,31 @@ class MultiAgentBenchmarkRunner:
                     },
                 ))
             logger.info("Loaded %d MGSM tasks for '%s'.", len(items), lang)
+        return tasks
+
+    def _load_afrimgsm_agent_tasks(self, cfg: Dict) -> List:
+        """AfriMGSM math tasks (translated GSM8k, African languages) with gold answer."""
+        from latent_coordination.agents.base_agent import AgentTask
+        from latent_coordination.eval.correctness import (
+            AFRIMGSM_SUPPORTED_LANGUAGES,
+            load_afrimgsm_tasks,
+        )
+
+        tasks = []
+        n = cfg.get("n_samples")
+        for lang in self._benchmark_languages(cfg, set(AFRIMGSM_SUPPORTED_LANGUAGES)):
+            items = load_afrimgsm_tasks(language=lang, n=n)
+            for i, item in enumerate(items):
+                tasks.append(AgentTask(
+                    task_id=f"afrimgsm_{lang}_{i}",
+                    query=item["question"],
+                    target_language=lang,
+                    metadata={
+                        "benchmark": "afrimgsm",
+                        "gold_answer": float(item["answer"]),
+                    },
+                ))
+            logger.info("Loaded %d AfriMGSM tasks for '%s'.", len(items), lang)
         return tasks
 
     def _load_belebele_agent_tasks(self, cfg: Dict) -> List:

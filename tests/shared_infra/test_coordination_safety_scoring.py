@@ -39,6 +39,7 @@ class _Task:
     context: str = "ctx"
     target_language: str = "th"
     latent_state: Any = None
+    reference: Any = "ref"
 
 
 @dataclass

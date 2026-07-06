@@ -72,12 +72,17 @@ class MetricsComputer:
             enc = tokenizer(batch, return_tensors="pt", padding=True, truncation=True).to(device)
             input_ids = enc["input_ids"]
             attention_mask = enc["attention_mask"]
+            # Mask padding out of the loss: with labels=input_ids the model would be
+            # scored on predicting PAD tokens too, which systematically deflates
+            # perplexity for any batch with length variance. -100 is ignored by the
+            # HF cross-entropy.
+            labels = input_ids.masked_fill(attention_mask == 0, -100)
 
             with torch.no_grad():
-                outputs = model(input_ids, attention_mask=attention_mask, labels=input_ids)
-                loss = outputs.loss  # average negative log likelihood per token
-                # count tokens actually evaluated (excluding padding)
-                n_tokens = attention_mask.sum().item()
+                outputs = model(input_ids, attention_mask=attention_mask, labels=labels)
+                loss = outputs.loss  # average negative log likelihood per non-pad token
+                # count label tokens actually evaluated (non-pad, shifted by 1)
+                n_tokens = int((labels[:, 1:] != -100).sum().item())
                 total_loss += loss.item() * n_tokens
                 total_tokens += n_tokens
 
@@ -97,7 +102,10 @@ class MetricsComputer:
                 "bleu_1": bleu.precisions[0] if len(bleu.precisions) > 0 else 0.0,
                 "bleu_2": bleu.precisions[1] if len(bleu.precisions) > 1 else 0.0,
                 "bleu_3": bleu.precisions[2] if len(bleu.precisions) > 2 else 0.0,
-                "bleu_4": bleu.score,
+                # 4-gram precision, matching the other bleu_n keys — bleu.score (the
+                # overall geometric-mean BLEU) was previously mislabeled as "bleu_4".
+                "bleu_4": bleu.precisions[3] if len(bleu.precisions) > 3 else 0.0,
+                "bleu": bleu.score,
             }
         except ImportError as exc:
             raise RuntimeError(
@@ -129,7 +137,7 @@ class MetricsComputer:
     @staticmethod
     def compute_language_accuracy(predictions: List[str], target_lang: str) -> float:
         """Determine what fraction of predictions match the target language."""
-        from latent_coordination.eval.script_fidelity import ScriptFidelityEvaluator
+        from shared.script_fidelity import ScriptFidelityEvaluator
         evaluator = ScriptFidelityEvaluator()
         sfrs = [evaluator.compute_sfr(p, target_lang) for p in predictions]
         # Threshold: if > 50% of characters are in target script, count as correct lang

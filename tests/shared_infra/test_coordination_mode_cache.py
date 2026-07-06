@@ -34,6 +34,7 @@ class _Task:
     context: str = "ctx"
     target_language: str = "th"
     latent_state: Any = None
+    reference: Any = "ref"
 
 
 @dataclass
@@ -62,6 +63,13 @@ class _Router:
 
 def _tasks(n=3):
     return [_Task(task_id=f"t{i}") for i in range(n)]
+
+
+def _lang_tasks(langs, per_lang=2):
+    return [
+        _Task(task_id=f"{lang}_{i}", target_language=lang)
+        for lang in langs for i in range(per_lang)
+    ]
 
 
 def test_single_mode_runs_and_caches():
@@ -103,3 +111,59 @@ def test_invalid_mode_rejected():
     runner = MultiAgentBenchmarkRunner(output_dir=tempfile.mkdtemp())
     with pytest.raises(ValueError):
         runner.run_eval(_Router(), _tasks(), None, modes=["bogus_mode"])
+
+
+def test_partial_checkpoint_survives_crash_and_resumes():
+    """A crash mid-mode must only lose the in-flight chunk, not the whole mode.
+
+    Simulates a kill after the 'en' language chunk of token_based_mas
+    completes but before 'th' finishes, then verifies a fresh run resumes
+    from the 'th' chunk instead of recomputing 'en'.
+    """
+    cm = CheckpointManager(tempfile.mkdtemp(), "coordination")
+    runner = MultiAgentBenchmarkRunner(output_dir=tempfile.mkdtemp())
+    tasks = _lang_tasks(["en", "th"], per_lang=2)
+
+    calls = {"n": 0}
+    crash_armed = {"on": True}
+    real_process = _Agent.process
+
+    def _flaky_process(self, task):
+        calls["n"] += 1
+        if crash_armed["on"] and task.target_language == "th":
+            raise RuntimeError("simulated crash mid-mode")
+        return real_process(self, task)
+
+    _Agent.process = _flaky_process
+    try:
+        try:
+            runner.run_eval(
+                _Router(), tasks, None, modes=["token_based_mas"],
+                checkpoint_manager=cm, cache_prefix="coord::M",
+            )
+            assert False, "expected simulated crash to propagate"
+        except RuntimeError:
+            pass
+
+        # The mode never finished, so no full-mode result is cached...
+        assert not cm.has_result("coord::M::mode::token_based_mas")
+        # ...but the 'en' chunk's progress survived the crash.
+        partial = cm.get_result("coord::M::mode::token_based_mas::partial")
+        assert any(k.endswith("::en") for k in partial["done_chunks"])
+        assert not any(k.endswith("::th") for k in partial["done_chunks"])
+        calls_before_resume = calls["n"]
+
+        # Resume: 'en' must not be recomputed.
+        crash_armed["on"] = False
+        rep = runner.run_eval(
+            _Router(), tasks, None, modes=["token_based_mas"],
+            checkpoint_manager=cm, cache_prefix="coord::M",
+        )
+    finally:
+        _Agent.process = real_process
+
+    assert calls["n"] == calls_before_resume + 4  # only the 2 'th' tasks re-run (2 agents each)
+    assert cm.has_result("coord::M::mode::token_based_mas")
+    # Partial state is cleaned up once the mode fully completes.
+    assert not cm.has_result("coord::M::mode::token_based_mas::partial")
+    assert list(rep.results_by_mode) == ["token_based_mas"]

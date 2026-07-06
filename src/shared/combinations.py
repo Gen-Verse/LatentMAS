@@ -392,13 +392,21 @@ METRICS: Dict[str, MetricSpec] = {
         "unbabel-comet (checkpoint: Unbabel/XCOMET-XL)", "implemented",
         "Reference-based, best correlation with human judgment as of 2025/2026; "
         "supersedes the plain COMET checkpoint. Gives fine-grained error spans too. "
-        "shared.metrics::compute_xcomet.",
+        "shared.metrics::compute_xcomet. CAUTION (found 2026-07-02): unbabel-comet was "
+        "listed in pyproject.toml but never actually installed; `pip install "
+        "unbabel-comet` force-upgrades transformers/accelerate (4.46.3->4.57.6 "
+        "observed), breaking this repo's pinned versions, and even after installing "
+        "it a separate 'tensorflow_text backend' error crashed COMET's own tokenizer "
+        "init. Disabled by default in configs/latent_coordination_heterogeneous_"
+        "timeboxed.yaml pending an isolated env/subprocess fix -- don't enable "
+        "xcomet/cometkiwi in the same process as agent generation until that's solved.",
     ),
     "cometkiwi": MetricSpec(
         "cometkiwi", frozenset({TaskType.TRANSLATION}),
         "unbabel-comet (checkpoint: Unbabel/wmt23-cometkiwi-da-xl)", "implemented",
         "Reference-FREE quality estimation -- useful where there's no gold "
-        "translation (e.g. many FLORES+ target-language generations). "
+        "translation (e.g. many FLORES+ target-language generations). Same "
+        "dependency-conflict caution as xcomet above -- disabled by default pending a fix. "
         "shared.metrics::compute_cometkiwi.",
     ),
 }

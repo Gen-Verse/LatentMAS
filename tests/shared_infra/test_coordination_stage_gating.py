@@ -32,7 +32,7 @@ def _make_pipeline(tmp_path, calls):
         cm.save("cvae", "stage_b")
         return "cvae"
 
-    def stage_c(uls):
+    def stage_c(uls, router=None):
         calls.append("C")
         cm.save(True, "stage_c")
 
@@ -40,7 +40,7 @@ def _make_pipeline(tmp_path, calls):
         calls.append("D")
         cm.save(True, "stage_d")
 
-    def stage_e(router, uls):
+    def stage_e(router, uls, cvae_prior=None):
         calls.append("E")
         result = {"results_by_mode": {}}
         cm.save(result, "stage_f")

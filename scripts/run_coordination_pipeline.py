@@ -172,15 +172,34 @@ def load_config(config_path: Path) -> dict:
     return cfg
 
 
-def _parse_agent_overrides(agents_arg: str) -> Dict[str, str]:
-    """Parse KEY=VALUE,... string into dict."""
-    result: Dict[str, str] = {}
+def _coerce_override_value(value: str) -> Any:
+    """Coerce a CLI override string to bool/int/float when it looks like one.
+
+    Without this, ``--agents safety_agent.load_in_8bit=false`` stored the STRING
+    "false", which is truthy — silently enabling the very flag the user disabled.
+    """
+    lowered = value.lower()
+    if lowered in ("true", "yes", "on"):
+        return True
+    if lowered in ("false", "no", "off"):
+        return False
+    for cast in (int, float):
+        try:
+            return cast(value)
+        except ValueError:
+            continue
+    return value
+
+
+def _parse_agent_overrides(agents_arg: str) -> Dict[str, Any]:
+    """Parse KEY=VALUE,... string into dict (values type-coerced)."""
+    result: Dict[str, Any] = {}
     for pair in agents_arg.split(","):
         pair = pair.strip()
         if "=" not in pair:
             raise ValueError(f"Invalid agent override (expected KEY=VALUE): '{pair}'")
         k, v = pair.split("=", 1)
-        result[k.strip()] = v.strip()
+        result[k.strip()] = _coerce_override_value(v.strip())
     return result
 
 
@@ -202,11 +221,20 @@ def apply_overrides(cfg: dict, args: argparse.Namespace) -> dict:
             raise ValueError(f"--agents parse error: {exc}") from exc
         # Apply overrides: match agent by id prefix
         agents_list: List[Dict[str, Any]] = cfg.get("agents", [])
+        known_ids = {agent.get("id") for agent in agents_list}
         for key, val in overrides.items():
             parts = key.split(".", 1)
             agent_id, field = (parts[0], parts[1]) if len(parts) == 2 else (parts[0], None)
+            if agent_id not in known_ids or not field:
+                # A typo'd agent id (or missing field) used to be dropped silently —
+                # the run then proceeded with the un-overridden config.
+                raise ValueError(
+                    f"--agents override '{key}' does not match any agent id in the "
+                    f"config (known: {sorted(i for i in known_ids if i)}) or is "
+                    f"missing a '.field' part."
+                )
             for agent in agents_list:
-                if agent.get("id") == agent_id and field:
+                if agent.get("id") == agent_id:
                     agent[field] = val
                     logger.info("Override agent '%s'.%s → %s", agent_id, field, val)
 
@@ -312,8 +340,9 @@ def save_run_summary(summary: dict, output_dir: str) -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    run_compute_scan(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "compute_scan.json"))
+    # Parse args first so `--help`/arg errors don't trigger a GPU compute scan.
     args = parse_args()
+    run_compute_scan(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "compute_scan.json"))
 
     cfg = load_config(args.config)
 

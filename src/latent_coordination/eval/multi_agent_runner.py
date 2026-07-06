@@ -19,18 +19,20 @@ class MultiAgentRunner:
     def __init__(self):
         self.eval_engines = ["MGSM-Pro", "MathMist", "Multilingual Reasoning Gym (MRG)"]
         
-    def evaluate(self, system: Any) -> Dict[str, Any]:
+    def evaluate(self, system: Any, output_path: str = "final_report.json") -> Dict[str, Any]:
         logger.info(f"Running exact-match evaluation suite using engines: {self.eval_engines}")
-        
+
         # Validate real evaluation payload - no mock data allowed.
         if not hasattr(system, "get_ablation_metrics"):
             raise NotImplementedError("System must implement get_ablation_metrics() to export real staircase results. Dummy data is prohibited.")
-            
+
         real_metrics = system.get_ablation_metrics()
-        
-        # Staircase Ablation Export (Dynamic)
-        with open("final_report.json", "w") as f:
+
+        # Staircase Ablation Export (Dynamic). output_path is configurable so the
+        # report lands in the run directory, not whatever CWD the process happens
+        # to be in.
+        with open(output_path, "w") as f:
             json.dump(real_metrics, f, indent=4)
-            
-        logger.info("Saved strictly real staircase ablation array to final_report.json to isolate contributions.")
+
+        logger.info("Saved strictly real staircase ablation array to %s to isolate contributions.", output_path)
         return real_metrics

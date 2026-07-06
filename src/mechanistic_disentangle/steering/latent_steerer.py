@@ -23,8 +23,8 @@ import torch.nn as nn
 from torch import Tensor
 from transformers import PreTrainedModel, PreTrainedTokenizerBase
 
-from latent_coordination.steering.gaussian_scheduler import GaussianDepthScheduler
-from latent_coordination.steering.magnitude_norm import MagnitudeNormalizer
+from mechanistic_disentangle.steering.gaussian_scheduler import GaussianDepthScheduler
+from mechanistic_disentangle.steering.magnitude_norm import MagnitudeNormalizer
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

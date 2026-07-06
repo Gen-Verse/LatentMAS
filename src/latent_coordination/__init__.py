@@ -1,6 +1,12 @@
 """
-Latent Coordination Package (Unified): Multi-Agent Planning with Latent Coordination,
-Transferable Topology, Adaptive Orchestration, and Cross-Lingual Latent Steering.
+Latent Coordination Package (Paper 3): Multi-Agent Planning with Latent Coordination,
+Transferable Topology, and Adaptive Orchestration.
+
+Firewall (strategy.md §6): this package is SVD-free — all SVD/projection/steering
+math lives exclusively in ``src/mechanistic_disentangle`` and must never be
+imported here. Precomputed geometry diagnostics (the Geo_L risk vector) arrive as
+plain data artifacts via ``topology.geo_profile``. Run ``scripts/firewall_check.sh``
+to verify.
 """
 
 
@@ -21,12 +27,7 @@ from .baselines.gdesigner_mas_router import (
     MasRouterConfig,
 )
 
-# Latent Steering / Mechanistic Disentanglement exports
-from .geometry.svd_decomposer import SVDSubspaceDecomposer
-from .geometry.isomorphism import GeometricIsomorphismAnalyzer
-from .steering.gaussian_scheduler import GaussianDepthScheduler
-from .steering.magnitude_norm import MagnitudeNormalizer
-from .steering.latent_steerer import LatentSteerer
+# Shared metric evaluators (implementation lives in shared/script_fidelity.py)
 from .eval.script_fidelity import ScriptFidelityEvaluator, LanguageConsistencyEvaluator
 
 __author__ = "Himon Thakur"
@@ -56,12 +57,6 @@ __all__ = [
     "GDesignerBaseline",
     "MasRouterBaseline",
     "MasRouterConfig",
-    
-    "SVDSubspaceDecomposer",
-    "GeometricIsomorphismAnalyzer",
-    "GaussianDepthScheduler",
-    "MagnitudeNormalizer",
-    "LatentSteerer",
     "ScriptFidelityEvaluator",
     "LanguageConsistencyEvaluator",
 ]

@@ -159,3 +159,10 @@ class CheckpointManager:
         payload = torch.load(path, map_location="cpu", weights_only=False)
         logger.info("Loaded cached result | key=%s", key)
         return payload["obj"]
+
+    def delete_result(self, key: str) -> None:
+        """Remove a cached per-unit result, if present. No-op if absent."""
+        path = self._cache_path(key)
+        if path.exists():
+            path.unlink()
+            logger.info("Deleted cached result | key=%s", key)

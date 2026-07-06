@@ -1,8 +1,11 @@
-"""Pipeline execution modules."""
+"""Pipeline execution modules.
+
+The mechanistic representation-engineering pipeline moved to
+``mechanistic_disentangle.pipeline`` (strategy.md §6 firewall).
+"""
 
 
 from latent_coordination.pipeline.coordination_pipeline import CoordinationPipeline, CoordinationPipelineConfig
-from latent_coordination.pipeline.mechanistic_pipeline import MechanisticPipeline, PipelineConfig
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

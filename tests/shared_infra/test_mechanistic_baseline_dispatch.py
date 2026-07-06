@@ -14,10 +14,10 @@ import tempfile
 
 import torch
 
-from latent_coordination.eval.steering_benchmark import BenchmarkRunner
-from latent_coordination.steering.gaussian_scheduler import GaussianDepthScheduler
-from latent_coordination.steering.latent_steerer import LatentSteerer, _SteeringHook
-from latent_coordination.steering.magnitude_norm import MagnitudeNormalizer
+from mechanistic_disentangle.eval.steering_benchmark import BenchmarkRunner
+from mechanistic_disentangle.steering.gaussian_scheduler import GaussianDepthScheduler
+from mechanistic_disentangle.steering.latent_steerer import LatentSteerer, _SteeringHook
+from mechanistic_disentangle.steering.magnitude_norm import MagnitudeNormalizer
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
@@ -156,7 +156,7 @@ def test_steering_vector_layers_unions_per_model_layers():
     Stage F fell back to [15,24]. For Gemma (vectors at [21,31]) / SeaLLMs ([14,21])
     that matched nothing -> "0 layers active" -> steering silently no-op'd.
     """
-    from latent_coordination.pipeline.mechanistic_pipeline import MechanisticPipeline
+    from mechanistic_disentangle.pipeline.mechanistic_pipeline import MechanisticPipeline
 
     class _V:
         def __init__(self, layers):

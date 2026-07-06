@@ -53,12 +53,43 @@ universal_latent_space:
   adapter_hidden_dim: 1024
   adapter_dropout: 0.1
   adapter_training:
+    # Module A+B interlingua regularization (L_recon + gamma*L_DAE + mu*L_CKA with
+    # the unbiased-HSIC CKA estimator). When enabled=false the hub adapters stay
+    # RANDOM-INIT and latent_based_mas_ours results are not reportable -- Stage C
+    # logs a loud warning. Enabling requires real forward passes through every
+    # agent model on n_samples FLORES+ prompts (budget accordingly on V100).
+    enabled: false
+    n_samples: 64
     n_epochs: 50
     lr: 0.001
     batch_size: 32
+    dae_sigma: 0.1
+    mu_cka: 1.0
+    gamma_dae: 1.0
+# Module C: recursive latent refinement in hub space (strategy.md 4.3).
+# Zero-initialised residual core (identity until trained); see
+# configs/latent_coordination.yaml for details.
+latent_reasoning:
+  enabled: false
+  max_steps: 10
+  tau_exit: 0.8
+# Module E: closed-loop drift verification (strategy.md 4.4). Requires
+# universal_latent_space.adapter_training.enabled=true.
+verification:
+  enabled: false
+  tau_drift: 0.5
+  n_epochs: 100
+  lr: 0.001
 cvae:
   query_dim: 64
   graph_dim: 9
+  # Module D geometry conditioning (strategy.md 4.2): condition the topology
+  # prior on x = [q || Geo_L]. Requires a precomputed artifact from
+  # scripts/export_geo_profiles.py (mechanistic side; crosses the firewall as
+  # plain JSON). No zero-vector fallback exists: enabling this without the
+  # artifact raises.
+  condition_on_geometry: false
+  geo_profile_path: results/mechanistic/geo_profiles.json
   latent_dim: 32
   encoder_hidden:
   - 128
@@ -75,9 +106,17 @@ cvae:
   checkpoint_path: .cache/checkpoints/coordination_heterogeneous/cvae
 orchestration:
   n_intent_centroids: 8
-  routing_strategy: latent_centroid
-  parallel_agents: true
-  max_parallel_workers: 4
+  # attention (learned attention dispatch, default) | latent_centroid (k-means
+  # over Stage-D intent centroids, kept as ablation) | cvae_topology (the
+  # trained Module D prior samples the collaboration topology per query).
+  # This knob was previously ignored; it now selects the real router.
+  routing_strategy: attention
+  # parallel_agents/max_parallel_workers removed: the latent chain is sequential
+  # by design (each agent consumes the previous agent's transferred hidden state),
+  # so per-task agent parallelism is impossible; parallel_agents=true now fails
+  # loudly instead of being silently ignored. Parallelize across languages/instances.
+  # timeout_per_agent_s: wall-clock cap per agent generate() call (transformers'
+  # max_time stopping criterion); a runaway decode stops at the budget.
   timeout_per_agent_s: 60
 communication:
   modes:
@@ -86,11 +125,17 @@ communication:
   - hybrid
   track_all: true
   latent_transfer_layer: -4
-  # latent_based_mas_ours (hidden-state transfer) is only meaningful for
-  # same-architecture agent pairs -- LatentMASBaseline.share_hidden_state raises
-  # ValueError across architecture families (see run_latentmas.py docstring). With this
-  # agent pool, only single_agent_baseline and token_based_mas are runnable end-to-end;
-  # latent_based_mas_ours is kept here to surface/measure that failure mode explicitly.
+  # latent_based_mas_ours goes through AdaptiveOrchestrator.execute ->
+  # UniversalLatentHub.transfer, which registers each agent by its actual hidden_dim
+  # and routes through a per-agent adapter pair -- dimension/architecture-agnostic by
+  # design (Module B, dev_doc.md Section 2). It runs fine on this heterogeneous pool;
+  # there is no special-cased failure mode here (an earlier version of this comment
+  # incorrectly claimed otherwise by analogy with the unrelated standalone
+  # LatentMASBaseline class, which does hard-require matching hidden dims -- that
+  # class isn't used by this pipeline). Also NOTE: for a real run, see
+  # configs/latent_coordination_heterogeneous_timeboxed.yaml -- this config's
+  # per-role max_new_tokens (128/256/512) cost ~26-28h/instance at n=100/language on
+  # V100-16GB, ~6x more than a naive estimate assuming a uniform small token budget.
   eval_modes:
   - single_agent_baseline
   - token_based_mas
@@ -98,14 +143,25 @@ communication:
   backend: auto
 benchmarks:
   flores_plus:
+    # xcomet/cometkiwi DISABLED here too (this config previously left them on while
+    # the timeboxed variant documented that they crash every run that reaches the
+    # scoring step: unbabel-comet force-upgrades transformers/accelerate past the
+    # pinned versions, and even after install its tokenizer init fails with a
+    # "tensorflow_text backend" error — observed live 2026-07-02). Leaving them
+    # enabled meant a ~26-28h heterogeneous run died at the very end at the metric
+    # step. Re-enable only from an isolated env/subprocess; chrf is safe.
     translation_metrics:
       chrf: true
-      xcomet: true
-      cometkiwi: true
-    # 100/language x 3 languages/instance x 3 comm-modes fits ~4.7h on 1 set of 4 GPUs
-    # (see dev_doc.md Section 5). Run as 2 parallel instances (--languages th,my,km /
-    # lo,am,sw, --agents ...device=cuda:4..7, --output-dir results/coordination_heterogeneous_2)
-    # to cover all 6 languages across all 8 GPUs in the same wall-clock budget.
+      xcomet: false
+      cometkiwi: false
+    # WARNING: 100/language x 3 languages/instance x 3 comm-modes at this config's
+    # per-role max_new_tokens actually costs ~26-28h/instance on V100-16GB (measured
+    # live 2026-07-02), not the ~4.7h an estimate assuming a uniform small token
+    # budget would suggest -- token_based_mas/latent_based_mas_ours run ALL 3 agents
+    # per task (128+256+512=896 output tokens), and real decode throughput measured
+    # here was ~5.4 tok/s, not the ~10 tok/s dev_doc.md Section 5 assumed. For a
+    # ~4h-per-instance run, use configs/latent_coordination_heterogeneous_timeboxed.yaml
+    # instead (uniform 96 max_new_tokens, n=50/language).
     n_samples_per_language: 100
   sea_vision:
     enabled: true
@@ -114,20 +170,16 @@ benchmarks:
   sea_safeguardbench:
     enabled: true
     n_samples: 200
+# Staircase ablation (strategy.md 7.3): the canonical rows 0-6 + 7a live in
+# latent_coordination/eval/ablation_staircase.py::STAIRCASE_ROWS and are run via
+# scripts/run_ablation_staircase.py (ALWAYS --dry-run first; full staircase is
+# multiple GPU-days). The previous block here (communication_modes/n_agents_sweep/
+# topology_types) was aspirational config no code ever read and promised sweeps
+# (2-16 agents, ring topologies) the 3-role pipeline cannot execute -- removed.
+# extra_rows: additions like 7d (Geo_L raw-65 via cvae.geo_profile_path override)
+# or 7e (verification.probe_arch: mlp), each {name, isolates, overrides:{dotted: v}}.
 ablation:
-  communication_modes:
-  - token_based
-  - latent_based
-  - hybrid
-  n_agents_sweep:
-  - 2
-  - 4
-  - 8
-  - 16
-  topology_types:
-  - hub_spoke
-  - fully_connected
-  - ring
+  extra_rows: []
 visualization:
   save_formats:
   - png

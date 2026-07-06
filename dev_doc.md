@@ -96,7 +96,8 @@ When running the `UniversalLatentHub`, if the English anchor state (`anchor_hidd
 *   **LC (Language Consistency):** `eval.script_fidelity::LanguageConsistencyEvaluator`, added to close SFR's blind spot -- whole-response language ID (`langid`) rather than a per-character script check, so it can actually distinguish Swahili/Indonesian/Malay/Cebuano/Filipino generations from English drift. Unsupported for Burmese (`langid` has no `my` class); those samples report `is_consistent=None`, not a silently-wrong `False`.
 *   **IFL (Involuntary Fidelity Loss):** The direct "English-drift" metric, calculated as $IFL = 1.0 - SFR$.
 *   **COMET, chrF, Exact Match, CKA, Drift (Activation divergence):** Natively implemented via their respective strict algorithms.
-*   **xCOMET / CometKiwi (wired 2026-07-02):** `shared.metrics::compute_xcomet` / `compute_cometkiwi` -- as of 2025/2026, plain COMET (`Unbabel/wmt22-comet-da`) is no longer the frontier. xCOMET (`Unbabel/XCOMET-XL`, reference-based, best correlation with human judgment + fine-grained error spans) and CometKiwi (`Unbabel/wmt23-cometkiwi-da-xl`, reference-free QE) are now called from `MultiAgentBenchmarkRunner._compute_translation_quality` against the real FLORES+ gold reference/source carried on each `AgentTask` (`task.context`/`task.query`). Opt-in per benchmark via `configs/*.yaml`'s `benchmarks.flores_plus.translation_metrics` (both checkpoints are gated + ~13.9GB each, so off by default in the smoketest config, on in the full configs). chrF is on by default (cheap, ungated).
+*   **xCOMET / CometKiwi (wired 2026-07-02, DISABLED BY DEFAULT as of the same day -- see caution below):** `shared.metrics::compute_xcomet` / `compute_cometkiwi` -- as of 2025/2026, plain COMET (`Unbabel/wmt22-comet-da`) is no longer the frontier. xCOMET (`Unbabel/XCOMET-XL`, reference-based, best correlation with human judgment + fine-grained error spans) and CometKiwi (`Unbabel/wmt23-cometkiwi-da-xl`, reference-free QE) are called from `MultiAgentBenchmarkRunner._compute_translation_quality` against the real FLORES+ gold reference/source carried on each `AgentTask` (`task.context`/`task.query`). Opt-in per benchmark via `configs/*.yaml`'s `benchmarks.flores_plus.translation_metrics`.
+    **Caution (found live, 2026-07-02):** `unbabel-comet` was listed in `pyproject.toml` as a dependency but was never actually installed in this environment. `pip install unbabel-comet` resolves to a dependency set that force-upgrades `transformers`/`accelerate` (observed 4.46.3->4.57.6, 1.1.1->1.13.0), breaking the versions this pipeline's agent generation is pinned to (exactly the risk `pyproject.toml`'s own comment already warned about for a different install path). Even after installing it and reverting the transformers/accelerate upgrade, a real run then crashed with `ValueError: Backend should be defined in the BACKENDS_MAPPING. Offending backend: tensorflow_text` inside COMET's own tokenizer init. Both `configs/latent_coordination_heterogeneous_timeboxed.yaml` and any run using xcomet/cometkiwi crashed on this before a single mode's results were saved. **Do not enable `xcomet`/`cometkiwi` in the same process as agent generation until this is resolved in an isolated env/subprocess.** chrF has no such risk (sacrebleu only) and stays on by default.
 
 ---
 
@@ -128,6 +129,19 @@ readable breakdown.
 
 *   **Hardware:** 1x Tesla V100-PCIE-16GB (this box has 8; naive per-GPU parallelization divides total time by up to 8).
 *   **Decode throughput:** 10 tokens/s per agent call. All 6 in-use backbones are 7-8.5B params, loaded 8-bit (`load_in_8bit: true` in every config) -- Volta (cc7.0) lacks int8 tensor cores, so bitsandbytes 8-bit inference is markedly slower than on Turing+; this is a deliberately conservative single-stream (batch=1) figure, not a measured benchmark.
+*   **MEASURED CALIBRATION (2026-07-03) -- supersedes the 10 tok/s assumption; scale
+    every estimate in this section by ~1.5x.** Two independent measured sources agree
+    on **~4.7 effective tok/s** (V100, 8-bit, batch=1, incl. prefill):
+    (1) the 6 real LatentMAS/ThoughtComm MGSM runs (Qwen2.5-7B-Instruct, n=200,
+    `max_new_tokens=256`, copied into `results/baselines/{latentmas,thoughtcomm}/`
+    from LRL-MRRE-MAS): 67.8 (en) / 88.6 (sw) / 96.8 (th) s per 2-call sample, i.e.
+    ~34-48 s/agent-call at 154-213 actually-generated tokens/call -- language-dependent
+    via tokenizer inflation (th ~1.4x en);
+    (2) the heterogeneous FLORES+ timeboxed runs (`results/coordination_heterogeneous_
+    timeboxed*/`): 18-21 s/call at a 96-token cap ~= 1.5 + 96/4.7, so the mixed
+    sailor2/llama/cohere pool decodes at the same rate as the Qwen homogeneous case.
+    Calibrated per-call planning figure for MGSM-length outputs: **~40 s average
+    across MGSM's 11 languages (34 s en-like Latin/CJK, 48 s th/bn/te-like)**.
 *   **Prefill + orchestration overhead:** 1.5s per agent call (tokenization, prompt prefill at our context lengths, router/orchestrator bookkeeping).
 *   **Model load time:** 90s per model per run, amortized once (not per-sample).
 *   **Agent calls per sample**, by baseline/comm-mode: `LatentMASBaseline`/`ThoughtCommBaseline` = 2 (documented two-step homogeneous chain, see `run_latentmas.py` docstring); `single_agent_baseline` = 1; `token_based_mas`/`latent_based_mas_ours` = 3 (translation + reasoning + safety agents; the orchestrator only routes).
@@ -138,23 +152,23 @@ readable breakdown.
 
 ### Per-(baseline, benchmark) breakdown
 
-| Baseline | Benchmark | Models | Languages | Units (model x lang) | Samples/run | Est. time / unit | Est. total (all units, 1 GPU) |
-|---|---|---|---|---|---|---|---|
-| `LatentMASBaseline` | mgsm | 8 | 11 | 88 | 200 | 182.2 min (3.0h) | 267.2h (11.1d) |
-| `LatentMASBaseline` | mgsm_pro | 8 | 9 | 72 | 200 | 182.2 min (3.0h) | 218.6h (9.1d) |
-| `LatentMASBaseline` | belebele | 8 | 13 | 104 | 200 | 54.2 min (0.9h) | 93.9h (3.9d) |
-| `ThoughtCommBaseline` | mgsm | 8 | 11 | 88 | 200 | 182.2 min (3.0h) | 267.2h (11.1d) |
-| `ThoughtCommBaseline` | mgsm_pro | 8 | 9 | 72 | 200 | 182.2 min (3.0h) | 218.6h (9.1d) |
-| `ThoughtCommBaseline` | belebele | 8 | 13 | 104 | 200 | 54.2 min (0.9h) | 93.9h (3.9d) |
-| `single_agent_baseline` | flores_plus | 8 | 6 (hardcoded) | 48 | 200 | 27.8 min (0.5h) | 22.3h (0.9d) |
-| `single_agent_baseline` | sea_vision | 8 | 10 | 80 | 200 | 91.8 min (1.5h) | 122.4h (5.1d) |
-| `single_agent_baseline` | sea_safeguardbench | 8 | 1 (repo-dependent) | 8 | 200 | 17.2 min (0.3h) | 2.3h |
-| `token_based_mas` | flores_plus | 8 | 6 (hardcoded) | 48 | 200 | 80.5 min (1.3h) | 64.4h (2.7d) |
-| `token_based_mas` | sea_vision | 8 | 10 | 80 | 200 | 272.5 min (4.5h) | 363.3h (15.1d) |
-| `token_based_mas` | sea_safeguardbench | 8 | 1 (repo-dependent) | 8 | 200 | 48.5 min (0.8h) | 6.5h |
-| `latent_based_mas_ours`\* | flores_plus | 8 | 6 (hardcoded) | 48 | 200 | 80.5 min (1.3h) | 64.4h (2.7d) |
-| `latent_based_mas_ours`\* | sea_vision | 8 | 10 | 80 | 200 | 272.5 min (4.5h) | 363.3h (15.1d) |
-| `latent_based_mas_ours`\* | sea_safeguardbench | 8 | 1 (repo-dependent) | 8 | 200 | 48.5 min (0.8h) | 6.5h |
+| Baseline | Benchmark | Models | Languages | Units (model x lang) | Samples/run | Est. time / unit | Est. total (all units, 1 GPU) | Est. total (8 GPUs) |
+|---|---|---|---|---|---|---|---|---|
+| `LatentMASBaseline` | mgsm | 8 | 11 | 88 | 200 | 182.2 min (3.0h) | 267.2h (11.1d) | 33.4h (1.4d) |
+| `LatentMASBaseline` | mgsm_pro | 8 | 9 | 72 | 200 | 182.2 min (3.0h) | 218.6h (9.1d) | 27.3h (1.1d) |
+| `LatentMASBaseline` | belebele | 8 | 13 | 104 | 200 | 54.2 min (0.9h) | 93.9h (3.9d) | 11.7h (0.5d) |
+| `ThoughtCommBaseline` | mgsm | 8 | 11 | 88 | 200 | 182.2 min (3.0h) | 267.2h (11.1d) | 33.4h (1.4d) |
+| `ThoughtCommBaseline` | mgsm_pro | 8 | 9 | 72 | 200 | 182.2 min (3.0h) | 218.6h (9.1d) | 27.3h (1.1d) |
+| `ThoughtCommBaseline` | belebele | 8 | 13 | 104 | 200 | 54.2 min (0.9h) | 93.9h (3.9d) | 11.7h (0.5d) |
+| `single_agent_baseline` | flores_plus | 8 | 6 (hardcoded) | 48 | 200 | 27.8 min (0.5h) | 22.3h (0.9d) | 2.8h (0.1d) |
+| `single_agent_baseline` | sea_vision | 8 | 10 | 80 | 200 | 91.8 min (1.5h) | 122.4h (5.1d) | 15.3h (0.6d) |
+| `single_agent_baseline` | sea_safeguardbench | 8 | 1 (repo-dependent) | 8 | 200 | 17.2 min (0.3h) | 2.3h | 0.3h |
+| `token_based_mas` | flores_plus | 8 | 6 (hardcoded) | 48 | 200 | 80.5 min (1.3h) | 64.4h (2.7d) | 8.1h (0.3d) |
+| `token_based_mas` | sea_vision | 8 | 10 | 80 | 200 | 272.5 min (4.5h) | 363.3h (15.1d) | 45.4h (1.9d) |
+| `token_based_mas` | sea_safeguardbench | 8 | 1 (repo-dependent) | 8 | 200 | 48.5 min (0.8h) | 6.5h | 0.8h |
+| `latent_based_mas_ours`\* | flores_plus | 8 | 6 (hardcoded) | 48 | 200 | 80.5 min (1.3h) | 64.4h (2.7d) | 8.1h (0.3d) |
+| `latent_based_mas_ours`\* | sea_vision | 8 | 10 | 80 | 200 | 272.5 min (4.5h) | 363.3h (15.1d) | 45.4h (1.9d) |
+| `latent_based_mas_ours`\* | sea_safeguardbench | 8 | 1 (repo-dependent) | 8 | 200 | 48.5 min (0.8h) | 6.5h | 0.8h |
 
 \* `latent_based_mas_ours` requires the HF backend. **Correction (2026-07-02):** an earlier
 version of this note claimed this mode fails fast on `configs/latent_coordination_
@@ -183,3 +197,161 @@ experiment (e.g. "just the heterogeneous-config ablation on flores_plus" = 1 mod
 execute. Use `python scripts/list_combinations.py --baseline X --benchmark Y` to enumerate
 the exact model/language/metric subset for whatever slice you actually intend to run, and
 re-derive the time estimate for that slice from the formula above.
+
+---
+
+## 9. 2026-07-03 Evaluation configuration & pipeline audit (post-port from LRL-MRRE-MAS)
+
+A full reconciliation of the ported eval config/pipeline against the LRL-MRRE-MAS
+strategy documents (`strategy.md`, `implementation strategy.pdf`). Regression tests:
+`tests/shared_infra/test_eval_pipeline_fixes.py`. Fixed this session:
+
+**Measurement correctness**
+- Accuracy denominator now `len(tasks)`, not `len(answers)` (unanswered tasks were
+  silently dropped → inflated accuracy in all three comm-modes).
+- Token cost now counted with the producing agent's real tokenizer; whitespace
+  `split()` counted an entire unsegmented Thai/Burmese/Khmer sentence as ~1 token.
+- `shared/metrics._detect_script_ratio` (SFR/IFL) is now character-level; the
+  token-level version was near-binary 0/1 for unsegmented scripts.
+- `eval/metrics.compute_perplexity` masks PAD labels (-100); previously scored the
+  model on predicting padding. `compute_bleu`'s "bleu_4" now really is 4-gram
+  precision (overall score moved to "bleu").
+- Latent mode's 0-token claim is now true: `AdaptiveOrchestrator.execute()` no longer
+  passes each agent's decoded text to the next agent as `context` (hidden token
+  side-channel), and the fabricated `words*2.0` token estimate is gone.
+- `EfficiencyAnalyzer.run_ablation` no longer fabricates a fresh untrained
+  128-dim hub + constant 256.0 latent cost; it requires the pipeline's real hub and
+  reports measured latent bytes.
+- Benchmark report metadata no longer claims a vLLM backend that never generated a
+  token; explicit `--backend vllm` now fails loudly (vLLM is not wired into the
+  agent path).
+
+**Pipeline logic**
+- Stage B honors `cvae.training.{n_epochs,lr,batch_size}` (were hardcoded 20/1e-3/8)
+  and trains on per-query TaskDecomposer-derived topology targets instead of a
+  constant all-ones matrix (which made the CVAE prior ignore its conditioning).
+- Stage C actually trains adapters now: `UniversalLatentHub.fit_adapters` implements
+  Module A+B (`L_recon + γ·L_DAE + μ·L_CKA`, unbiased-HSIC CKA per the audit), gated
+  by `universal_latent_space.adapter_training.enabled` (default false → loud warning
+  that latent-mode numbers are not reportable on random adapters).
+- Stage C/D checkpoints carry real state (hub object / centroids) instead of `True`
+  sentinels, so `--stages E` runs no longer lose registrations/centroids.
+- Stage D fits centroids on float `encode_query_bow` embeddings (was: Stage B's long
+  CVAE token-ids when B ran first) at `orchestration.n_intent_centroids` (was 3).
+- Stage E cache key includes every agent's model_id (was: orchestrator only — a
+  heterogeneous config swap silently reused stale cached results); checkpoint key is
+  `stage_e` (legacy `stage_f` still readable).
+- Stage F CVAE plot: `encode(G, Q)` argument order fixed (was swapped + flattened,
+  so the plot silently failed every run).
+- Router: canonical deterministic role order translation→reasoning→safety (was
+  PYTHONHASHSEED-random set iteration); route-time query embeddings share
+  `QUERY_EMBED_DIM=64` with centroid fitting (was 32 vs 64 → k-means path crashed);
+  `compare_communication_modes` registers receivers at their own hidden_dim.
+- `BaseAgent.inject_latent_and_generate` injects at prefill only (the hook used to
+  re-overwrite every decode step's hidden state with the same vector); greedy
+  decoding everywhere in eval for reproducibility.
+- TranslationAgent's SFR gate uses the target language's actual Unicode ranges (raw
+  non-ASCII density scored every correct Swahili output as "low quality").
+- `verification_probe` (Module E) refuses to gate on an untrained decoder and has a
+  real `fit_decoder`; per-sample drift reporting.
+- Configs: heterogeneous config's xcomet/cometkiwi disabled (documented crash);
+  `--agents` CLI overrides type-coerce values (`load_in_8bit=false` was a truthy
+  string) and reject unknown agent ids.
+
+**Known gaps at the time of the audit — ALL SIX SINCE CLOSED (status as of
+2026-07-03, later sessions; kept for the historical record):**
+
+1. ~~Stage E completeness proxy~~ **Fixed:** MGSM (EM), Belebele (log-likelihood or
+   EM via `benchmarks.belebele.scoring`), SEA-Vision and SEA-SafeguardBench are
+   Stage-E workloads with real correctness (`benchmark_runner.py::_load_real_tasks`
+   and `_compute_correctness`; per-benchmark `accuracy_<bench>` metrics,
+   `accuracy_kind='correctness'` when gold-carrying tasks exist).
+2. ~~No Geo_L conditioning; route() ignores topology~~ **Fixed:** `CVAETopologyPrior`
+   conditions on `x = [q ‖ Geo_L]` when `cvae.condition_on_geometry=true`
+   (`geo_profile_path` artifact from `scripts/export_geo_profiles.py`, loader in
+   `topology/geo_profile.py`); `routing_strategy: cvae_topology` makes the trained
+   prior drive agent selection/order at route time (zero-fallback: missing Geo_L
+   raises, never zero-substitutes).
+3. ~~Modules C/E dead code~~ **Fixed:** `latent_reasoning.enabled` /
+   `verification.enabled` put `RecursiveLatentCore` and the drift probe in the hub
+   transfer path (`router._hub_transfer`: refine → drift-check → one repair hop →
+   flag-and-continue). Probe refuses to gate untrained; fitted on the real Stage-C
+   corpus.
+4. ~~Firewall~~ **Fixed:** SVD/steering/geometry/mechanistic pipeline moved to
+   `src/mechanistic_disentangle/`; `scripts/firewall_check.sh` (AST-based, Rules
+   1-4 of strategy.md §6) passes and appends to `ARTIFACTS/firewall_audit_log.md`.
+5. ~~Output-text re-encode as "latent state"~~ **Fixed:**
+   `BaseAgent.generate_and_capture` hands off generation-time hidden states from
+   `communication.latent_transfer_layer` (regression:
+   `tests/shared_infra/test_generation_time_latent_capture.py`).
+6. ~~Ignored config knobs~~ **Fixed** (last three closed 2026-07-03, see §10):
+   `latent_transfer_layer`, `routing_strategy`, `sea_vision`/`sea_safeguardbench`
+   loaders in earlier sessions; `checkpointing.checkpoint_dir`,
+   `timeout_per_agent_s`, and `ablation.*` in §10. `parallel_agents` was removed
+   rather than wired — see §10 for why.
+
+---
+
+## 10. 2026-07-03 Strategy-gap closure (gap-6 remainder + strategy.md Phase-4 items)
+
+Regression tests: `tests/shared_infra/test_strategy_gap_fixes.py` (16 tests;
+full suite 257/257, firewall PASS). Fixed this session:
+
+* **`checkpointing.checkpoint_dir` honored** (was hardcoded to
+  `{output_dir}/checkpoints`). Note: runs resuming from the old default location
+  should either set the knob to that path or move the checkpoint tree once.
+* **`orchestration.parallel_agents` removed from configs; `true` now fails
+  loudly.** It was never implemented and cannot be: the latent chain is
+  sequential by design — each agent consumes the previous agent's transferred
+  hidden state, so there is nothing to parallelize within one task. Parallelize
+  across languages/instances instead (the 2-instance 8-GPU split in
+  `scripts/build_experimental_report.py`). `max_parallel_workers` removed with it.
+* **`orchestration.timeout_per_agent_s` wired** to transformers'
+  `generate(max_time=…)` stopping criterion via `AgentConfig.max_time_s` — a
+  runaway decode now ends cleanly at the budget instead of hanging the chain.
+* **Staircase ablation runner (strategy.md §7.3):**
+  `latent_coordination/eval/ablation_staircase.py` + `scripts/run_ablation_staircase.py`.
+  Rows 0-6 plus the 7a loss-term split map to the REAL module toggles
+  (`adapter_training.enabled`, `routing_strategy=cvae_topology` with
+  `condition_on_geometry`, `latent_reasoning.enabled`, `verification.enabled`,
+  `mu_cka`/`gamma_dae` zeroing); 7b (OneFlow single-agent row) rides in every
+  row's `eval_modes`; 7d/7e are expressible as `ablation.extra_rows` overrides.
+  Each row runs in an isolated output+checkpoint dir — REQUIRED, because the
+  Stage-E cache key does not encode module toggles. The old `ablation:` YAML
+  block (`communication_modes`/`n_agents_sweep`/`topology_types`) was config no
+  code ever read, promising sweeps the 3-role pipeline cannot execute — replaced.
+  **Always `--dry-run` first**: a full staircase is ~10 full pipeline runs.
+* **OneFlow narrative-gating conditional (strategy.md §7.2)** implemented in the
+  report generator, not left editorial: Stage G's `final_report["headline_framing"]`
+  (`coordination_pipeline.py::derive_headline_framing`) pivots to
+  `efficiency_fallback` (token-overhead reduction vs `token_based_mas`,
+  bandwidth savings, heterogeneous cross-architecture caveat) whenever
+  `single_agent_baseline` accuracy ≥ `latent_based_mas_ours` accuracy. The
+  Phase-4-gate synthetic-trigger test is in the regression file.
+* **Drift-probe shallow-MLP variant (strategy.md §4.4 / ablation 7e):**
+  `verification.probe_arch: linear|mlp` (+ `mlp_hidden_dim`);
+  `QueryReconstructionProbe.query_dim` is now the canonical dim attribute
+  (the MLP's `Sequential` decoder has no `out_features`; router falls back for
+  pre-MLP checkpoints).
+
+**Still open (research execution, not wiring):** actually *running* the staircase
+with adapter training + trained CVAE + exported Geo_L artifacts at reportable
+sample sizes (see Section 5's cost model), and the Phase-3/Paper-2 gate items
+(strategy.md Phase 0 differentiation write-up) which are writing tasks, not code.
+
+---
+
+## 11. Current Status, Future Plans, and Ongoing Issues
+
+### Project Status: Latent Coordination (Paper 3)
+This repository represents the **Latent Coordination** project (targeted for AAAI 2027), which focuses on text-free multi-agent reasoning via a shared continuous latent space. The primary goal is to establish the defensible novelty of the query-conditioned CVAE graph prior with zero-shot topology transfer.
+
+### Ongoing Issues and Critical Blockers
+- **Correctness Scorer (CRITICAL):** The current completeness proxy is disqualifying for a reasoning-coordination claim and must be replaced with a real reference scorer. Tasks like MGSM (exact-match) and MMLU-ProX (multiple-choice log-likelihood) must be integrated to produce real accuracy metrics.
+- **Baseline Integration:** The pipeline lacks head-to-head MAS baselines. It is critical to integrate `LatentMAS` (training-free latent SOTA) and either `ThoughtComm` or `G-Designer` to report an accuracy-vs-token-cost frontier.
+- **Cost Accounting:** Need to implement honest cost accounting (prompt/total tokens + wall-clock) versus accuracy at different agent scales (N=4, 8, 16).
+- **Router Ablation:** The attention router needs to be ablated against k-means, and the Transformer query encoder against BiLSTM, reporting correctness deltas instead of completeness.
+
+### Future Plans and Architecture
+- **Repo Firewall & Reframing:** Ensure all CLAP/SVD/U_R content is removed from this repository to maintain the firewall between the MAS-domain work and the geometry/steering work. The narrative will be reframed to clearly distinguish the CVAE prior from existing works like Vision Wormhole and LatentMAS.
+- **Hardware Constraints:** All operations must adhere to V100 limits (fp16 only, no bf16). One agent per device will be mapped for heterogeneous backbones (e.g., Qwen2.5-7B, Llama-3.1-8B), coupled through the 512-dimensional universal hub.

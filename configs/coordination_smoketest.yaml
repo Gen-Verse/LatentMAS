@@ -63,8 +63,12 @@ cvae:
 orchestration:
   n_intent_centroids: 2
   routing_strategy: latent_centroid
-  parallel_agents: false
-  max_parallel_workers: 1
+  # parallel_agents/max_parallel_workers removed: the latent chain is sequential
+  # by design (each agent consumes the previous agent's transferred hidden state),
+  # so per-task agent parallelism is impossible; parallel_agents=true now fails
+  # loudly instead of being silently ignored. Parallelize across languages/instances.
+  # timeout_per_agent_s: wall-clock cap per agent generate() call (transformers'
+  # max_time stopping criterion); a runaway decode stops at the budget.
   timeout_per_agent_s: 60
 communication:
   modes:
@@ -85,14 +89,9 @@ benchmarks:
   sea_safeguardbench:
     enabled: false
     n_samples: 2
+# See scripts/run_ablation_staircase.py; the old block here was config no code read.
 ablation:
-  communication_modes:
-  - token_based
-  - latent_based
-  n_agents_sweep:
-  - 2
-  topology_types:
-  - hub_spoke
+  extra_rows: []
 visualization:
   save_formats:
   - png

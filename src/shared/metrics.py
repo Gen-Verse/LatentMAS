@@ -103,16 +103,24 @@ SCRIPT_BLOCKS = {
 }
 
 def _detect_script_ratio(text: str, target_lang: str) -> float:
-    """Calculates the ratio of tokens containing the target script."""
+    """Ratio of alphabetic CHARACTERS in the target script.
+
+    Character-level on purpose: Thai/Lao/Khmer/Burmese do not use whitespace word
+    boundaries, so the previous token-level version (`text.split()` + "does the
+    token contain >=1 target char") collapsed an entire unsegmented sentence into
+    ~1 token and returned a near-binary 0/1 — one Thai character in an otherwise
+    fully-English output scored SFR=1.0. Char-level matches the definition used by
+    eval/script_fidelity.py (|target-script chars| / |alphabetic chars|).
+    """
     if not text:
         return 0.0
     pattern = SCRIPT_BLOCKS.get(target_lang)
-    
+
     if not pattern:
         # Fallback to semantic language identification for Latin-script / untracked languages
         try:
             import langid
-            # Set target lang as constrained language to boost speed and reliability if needed, 
+            # Set target lang as constrained language to boost speed and reliability if needed,
             # but classify freely to detect English bleed (IFL).
             lang, _ = langid.classify(text)
             return 1.0 if lang == target_lang else 0.0
@@ -121,14 +129,14 @@ def _detect_script_ratio(text: str, target_lang: str) -> float:
                 f"Language '{target_lang}' requires semantic detection, but 'langid' is missing. "
                 "Install with: pip install langid"
             ) from exc
-            
-    tokens = text.split()
-    if not tokens:
-        return 0.0
-        
+
     import re
-    match_count = sum(1 for token in tokens if re.search(pattern, token))
-    return match_count / len(tokens)
+    compiled = re.compile(pattern)
+    letters = [c for c in text if c.isalpha()]
+    if not letters:
+        return 0.0
+    match_count = sum(1 for c in letters if compiled.match(c))
+    return match_count / len(letters)
 
 
 def compute_sfr(predictions: List[str], target_lang: str = "th") -> float:

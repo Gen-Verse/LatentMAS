@@ -159,14 +159,14 @@ def main() -> int:
     if args.dry_run:
         logger.info("[DRY-RUN] Config validation passed. Checking imports...")
         try:
-            from latent_coordination.pipeline.mechanistic_pipeline import MechanisticPipeline  # noqa: F401
+            from mechanistic_disentangle.pipeline.mechanistic_pipeline import MechanisticPipeline  # noqa: F401
             logger.info("[DRY-RUN] Imports OK. Exiting without running pipeline.")
         except ImportError as exc:
             logger.warning("[DRY-RUN] Import warning (may be OK in dev): %s", exc)
         return 0
 
     try:
-        from latent_coordination.pipeline.mechanistic_pipeline import MechanisticPipeline
+        from mechanistic_disentangle.pipeline.mechanistic_pipeline import MechanisticPipeline
     except ImportError as exc:
         logger.error("Failed to import MechanisticPipeline: %s", exc)
         logger.debug(traceback.format_exc())

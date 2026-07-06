@@ -99,7 +99,14 @@ packages = [
     "latent_coordination.topology",
     "latent_coordination.utils",
     "latent_coordination.viz",
+    "mechanistic_disentangle",
+    "mechanistic_disentangle.eval",
+    "mechanistic_disentangle.geometry",
+    "mechanistic_disentangle.pipeline",
+    "mechanistic_disentangle.steering",
+    "mechanistic_disentangle.viz",
     "shared",
+    "shared.data",
     "mrre_drift",
     "mrre_drift.eval",
     "mrre_drift.interpret",
@@ -108,5 +115,5 @@ packages = [
     "mrre_drift.pipeline",
     "mrre_drift.utils",
 ]
-package-dir = { latent_coordination = "src/latent_coordination", shared = "src/shared", mrre_drift = "src/mrre_drift" }
+package-dir = { latent_coordination = "src/latent_coordination", mechanistic_disentangle = "src/mechanistic_disentangle", shared = "src/shared", mrre_drift = "src/mrre_drift" }
 py-modules = ["data", "models", "prompts", "run", "train", "utils"]

@@ -196,7 +196,7 @@ class SurgicalPipeline:
         return self._model, self._tokenizer
 
     def _lexicon(self):
-        from latent_coordination.data.lexicon import ContrastiveLexicon
+        from shared.data.lexicon import ContrastiveLexicon
         return ContrastiveLexicon(cache_dir=Path(".cache/datasets"))
 
     # ------------------------------------------------------------------

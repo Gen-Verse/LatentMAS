@@ -12,19 +12,19 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import torch
 
-from latent_coordination.data.lexicon import ContrastiveLexicon
-from latent_coordination.data.dataset_loader import DatasetLoader
-from latent_coordination.geometry.activation_extractor import ActivationExtractor
-from latent_coordination.geometry.svd_decomposer import SVDSubspaceDecomposer
-from latent_coordination.geometry.isomorphism import GeometricIsomorphismAnalyzer
-from latent_coordination.steering.gaussian_scheduler import GaussianDepthScheduler
-from latent_coordination.steering.magnitude_norm import MagnitudeNormalizer
-from latent_coordination.steering.latent_steerer import LatentSteerer
-from latent_coordination.steering.vector_builder import SteeringVectorBuilder
-from latent_coordination.eval.steering_benchmark import BenchmarkRunner
-from latent_coordination.viz.geometry_plots import GeometryPlotter
-from latent_coordination.viz.steering_plots import SteeringPlotter
-from latent_coordination.viz.mechanistic_plots import MechanisticPlotter
+from shared.data.lexicon import ContrastiveLexicon
+from shared.data.dataset_loader import DatasetLoader
+from mechanistic_disentangle.geometry.activation_extractor import ActivationExtractor
+from mechanistic_disentangle.geometry.svd_decomposer import SVDSubspaceDecomposer
+from mechanistic_disentangle.geometry.isomorphism import GeometricIsomorphismAnalyzer
+from mechanistic_disentangle.steering.gaussian_scheduler import GaussianDepthScheduler
+from mechanistic_disentangle.steering.magnitude_norm import MagnitudeNormalizer
+from mechanistic_disentangle.steering.latent_steerer import LatentSteerer
+from mechanistic_disentangle.steering.vector_builder import SteeringVectorBuilder
+from mechanistic_disentangle.eval.steering_benchmark import BenchmarkRunner
+from mechanistic_disentangle.viz.geometry_plots import GeometryPlotter
+from mechanistic_disentangle.viz.steering_plots import SteeringPlotter
+from mechanistic_disentangle.viz.mechanistic_plots import MechanisticPlotter
 from shared.checkpointing import CheckpointManager
 from shared.logging_utils import setup_logging
 
@@ -860,7 +860,7 @@ class MechanisticPipeline:
 
         # 5. CKA isomorphism similarity — computed from real states
         if en_states and tgt_states:
-            from latent_coordination.geometry.isomorphism import GeometricIsomorphismAnalyzer
+            from mechanistic_disentangle.geometry.isomorphism import GeometricIsomorphismAnalyzer
             cka_analyzer = GeometricIsomorphismAnalyzer()
             languages = [l for l in self.config.target_languages if l in en_states]
             n = len(languages)

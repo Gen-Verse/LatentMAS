@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 import torch
 
-from latent_coordination.eval.script_fidelity import ScriptFidelityEvaluator
-from latent_coordination.eval.metrics import MetricsComputer
+from shared.script_fidelity import ScriptFidelityEvaluator
+from mechanistic_disentangle.eval.metrics import MetricsComputer
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright [2026], Himon Thakur"

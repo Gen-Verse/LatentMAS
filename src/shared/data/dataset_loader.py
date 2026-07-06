@@ -237,36 +237,114 @@ class DatasetLoader:
                 "load_sea_safeguardbench requires an explicit `repo_id` (or "
                 "`benchmarks.sea_safeguardbench.repo_id` in config). The legacy "
                 "'SeaEval/SEA-SafeguardBench' dataset is no longer available on the HF Hub; "
-                "supply a verified safety dataset id to enable this benchmark."
+                "supply a verified safety dataset id to enable this benchmark "
+                "(verified working: 'aisingapore/Safety-Toxicity-Detection', the "
+                "SEA-HELM safety component)."
             )
         logger.info("Fetching real SEA safety dataset '%s'.", repo_id)
-        from datasets import load_dataset
+        from datasets import get_dataset_config_names, load_dataset
+
+        def _row_text(item) -> str:
+            # SEA-HELM safety components carry the text as prompts=[{"text": ...}];
+            # flat safety sets use prompt/text string columns.
+            prompts = item.get("prompts")
+            if isinstance(prompts, list) and prompts and isinstance(prompts[0], dict):
+                return prompts[0].get("text", "")
+            return item.get("prompt", item.get("text", ""))
+
+        def _row_label(item):
+            return item.get("label", item.get("verdict"))
 
         try:
-            ds = load_dataset(repo_id, split=split)
+            # Per-language-config datasets (e.g. aisingapore/Safety-Toxicity-
+            # Detection: configs id/ms/my/th/tl/vi, split 'eval'): load each
+            # requested language's config. Single-config datasets keep the flat
+            # load path below.
+            config_names = get_dataset_config_names(repo_id)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to inspect safety dataset '{repo_id}' on HuggingFace. Error: {exc}. "
+                "No mock data fallback is permitted."
+            ) from exc
+
+        samples: List[Sample] = []
+        try:
+            if config_names and config_names != ["default"]:
+                wanted = [l for l in (languages or config_names) if l in config_names]
+                if languages and not wanted:
+                    raise ValueError(
+                        f"None of the requested languages {languages} exist as configs "
+                        f"of '{repo_id}' (available: {sorted(config_names)})."
+                    )
+                # Balance the total cap across languages so the first config
+                # doesn't consume the entire budget.
+                per_lang_cap = max(1, max_samples // len(wanted)) if max_samples else None
+                for lang in wanted:
+                    try:
+                        ds = load_dataset(repo_id, lang, split=split)
+                    except ValueError:
+                        # SEA-HELM components use 'eval' rather than 'test'.
+                        ds = load_dataset(repo_id, lang, split="eval")
+                    if per_lang_cap and per_lang_cap < len(ds):
+                        # Some configs are label-sorted (verified: the Thai
+                        # eval split's head is all non-toxic), so a head-cap
+                        # would test only one class. Deterministic shuffle
+                        # before capping keeps the label mix representative.
+                        ds = ds.shuffle(seed=42)
+                    n_lang = 0
+                    for i, item in enumerate(ds):
+                        if per_lang_cap and n_lang >= per_lang_cap:
+                            break
+                        n_lang += 1
+                        text = _row_text(item)
+                        label = _row_label(item)
+                        if not text or label is None:
+                            raise RuntimeError(
+                                f"Safety dataset '{repo_id}' config '{lang}' row {i} has "
+                                f"no recognizable text/label columns (got keys: "
+                                f"{sorted(item.keys())}). Refusing to fabricate data."
+                            )
+                        samples.append(Sample(
+                            sample_id=f"safeguard_{lang}_{i}",
+                            language=lang,
+                            text=text,
+                            question=text,
+                            reference_answer=label,
+                            image_path=None,
+                        ))
+            else:
+                ds = load_dataset(repo_id, split=split)
+                for i, item in enumerate(ds):
+                    if max_samples and len(samples) >= max_samples:
+                        break
+                    lang = item.get("language", "en")
+                    if languages and lang not in languages:
+                        continue
+                    text = _row_text(item)
+                    label = _row_label(item)
+                    if not text or label is None:
+                        raise RuntimeError(
+                            f"Safety dataset '{repo_id}' row {i} has no recognizable "
+                            f"text/label columns (got keys: {sorted(item.keys())}). "
+                            "Refusing to fabricate data."
+                        )
+                    samples.append(Sample(
+                        sample_id=f"safeguard_{lang}_{i}",
+                        language=lang,
+                        text=text,
+                        question=text,
+                        reference_answer=label,
+                        image_path=None,
+                    ))
+        except (RuntimeError, ValueError):
+            raise
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to load safety dataset '{repo_id}' from HuggingFace. Error: {exc}. "
                 "No mock data fallback is permitted."
             ) from exc
 
-        samples: List[Sample] = []
-        for i, item in enumerate(ds):
-            if max_samples and i >= max_samples:
-                break
-            lang = item.get("language", "en")
-            if languages and lang not in languages:
-                continue
-            samples.append(Sample(
-                sample_id=f"safeguard_{lang}_{i}",
-                language=lang,
-                text=item.get("prompt", item.get("text", "")),
-                question=item.get("prompt", item.get("text", "")),
-                reference_answer=item.get("label", item.get("verdict", "safe")),
-                image_path=None,
-            ))
-
-        logger.info("Loaded %d samples from SEA-SafeguardBench.", len(samples))
+        logger.info("Loaded %d samples from SEA safety benchmark '%s'.", len(samples), repo_id)
         return samples
 
     def load_mgsm(

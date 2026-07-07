@@ -93,6 +93,45 @@ def _pin_quantized_model_loads_to_agent_devices() -> None:
     model_loader.load_model_and_tokenizer = pinned_load_model_and_tokenizer
 
 
+def _patch_cvae_router_inputs_to_prior_device() -> None:
+    """Make CVAE topology routing device-safe for the alternate runner."""
+    try:
+        import latent_coordination.orchestration.router as router_mod
+    except Exception as exc:
+        logger.warning("Could not import router for CVAE device patch: %s", exc)
+        return
+
+    cls = router_mod.AdaptiveOrchestrator
+    original = cls._sample_topology_for
+    if getattr(original, "_mgsm_query_device_safe", False):
+        return
+
+    def sample_topology_for_device_safe(self, task):
+        if self.topology_prior is None or self.topology_query_encoder is None:
+            return original(self, task)
+
+        prior_device = next(self.topology_prior.parameters()).device
+        Q = self.topology_query_encoder(task.query)
+        if Q.dim() == 1:
+            Q = Q.unsqueeze(0)
+        Q = Q.long().to(prior_device)
+
+        geo = None
+        if getattr(self.topology_prior.config, "geo_dim", 0) > 0:
+            if self.geo_profile is None:
+                raise RuntimeError(
+                    "The topology prior conditions on Geo_L (geo_dim>0) but no "
+                    "GeoProfile is attached to the router."
+                )
+            geo = self.geo_profile.vector(task.target_language or "en").unsqueeze(0).to(prior_device)
+
+        adj = self.topology_prior.sample_topology(Q, n_samples=1, geo=geo)
+        return adj[0].detach().cpu()
+
+    sample_topology_for_device_safe._mgsm_query_device_safe = True
+    cls._sample_topology_for = sample_topology_for_device_safe
+
+
 class MGSMQueryCoordinationPipeline(CoordinationPipeline):
     """CoordinationPipeline variant that avoids gated FLORES+ dependencies."""
 
@@ -286,6 +325,7 @@ def main() -> int:
     base.run_compute_scan(scan_path)
     _disable_auto_device_map_for_agent_pinning(scan_path)
     _pin_quantized_model_loads_to_agent_devices()
+    _patch_cvae_router_inputs_to_prior_device()
 
     cfg = base.load_config(args.config)
     log_cfg = cfg.get("logging", {})

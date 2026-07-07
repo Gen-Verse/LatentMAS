@@ -46,6 +46,7 @@ from latent_coordination.eval.correctness import (
     load_belebele_tasks,
     load_mgsm_tasks,
     load_mgsm_pro_tasks,
+    load_afrimgsm_tasks,
     score_mgsm,
 )
 
@@ -66,7 +67,7 @@ logger = logging.getLogger(__name__)
 class ThoughtCommRunConfig:
     """Configuration for the ThoughtComm baseline runner."""
     model_id: str = "Qwen/Qwen2.5-7B-Instruct"
-    benchmark: str = "mgsm"          # "mgsm" | "mgsm_pro" | "belebele"
+    benchmark: str = "mgsm"          # "mgsm" | "mgsm_pro" | "afrimgsm" | "belebele"
     language: str = "en"
     split: str = "test"
     n: Optional[int] = 200
@@ -167,10 +168,14 @@ def run_mgsm(config: ThoughtCommRunConfig) -> ThoughtCommRunReport:
 
     MGSM-Pro shares MGSM's {"question", "answer"} schema but different language
     coverage (Amharic/Igbo/Twi/Yoruba, not Bengali/German/Russian/Telugu/Thai) --
-    config.benchmark="mgsm_pro" reuses this runner unchanged.
+    config.benchmark="mgsm_pro" reuses this runner unchanged. AfriMGSM
+    (config.benchmark="afrimgsm") is a translated-GSM8k benchmark covering 16
+    African languages absent from base MGSM, same schema.
     """
     if config.benchmark == "mgsm_pro":
         tasks = load_mgsm_pro_tasks(language=config.language, n=config.n)
+    elif config.benchmark == "afrimgsm":
+        tasks = load_afrimgsm_tasks(language=config.language, split=config.split, n=config.n)
     else:
         tasks = load_mgsm_tasks(language=config.language, split=config.split, n=config.n)
     logger.info("Loaded %d %s tasks (lang=%s)", len(tasks), config.benchmark, config.language)
@@ -220,6 +225,11 @@ def run_mgsm(config: ThoughtCommRunConfig) -> ThoughtCommRunReport:
         results.append(result)
         token_costs.append(total_tokens)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
+        logger.info(
+            "ThoughtComm MGSM task %d/%d | lang=%s | task_s=%.1f | running_acc=%.3f",
+            len(results), len(tasks), config.language,
+            latencies_ms[-1] / 1000, sum(r.is_correct for r in results) / len(results),
+        )
 
     total_wall = time.perf_counter() - t_total
     n_correct = sum(r.is_correct for r in results)
@@ -301,6 +311,11 @@ def run_belebele(config: ThoughtCommRunConfig) -> ThoughtCommRunReport:
         results.append(result)
         token_costs.append(total_tokens)
         latencies_ms.append((time.perf_counter() - t0) * 1000)
+        logger.info(
+            "ThoughtComm Belebele task %d/%d | lang=%s | task_s=%.1f | running_acc=%.3f",
+            len(results), len(tasks), config.language,
+            latencies_ms[-1] / 1000, sum(r.is_correct for r in results) / len(results),
+        )
 
     total_wall = time.perf_counter() - t_total
     n_correct = sum(r.is_correct for r in results)
@@ -326,7 +341,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     parser = argparse.ArgumentParser(description="ThoughtComm baseline runner")
     parser.add_argument("--model_id", default="Qwen/Qwen2.5-7B-Instruct")
-    parser.add_argument("--benchmark", choices=["mgsm", "mgsm_pro", "belebele"], default="mgsm")
+    parser.add_argument("--benchmark", choices=["mgsm", "mgsm_pro", "afrimgsm", "belebele"], default="mgsm")
     parser.add_argument("--language", default="en")
     parser.add_argument("--split", default="test")
     parser.add_argument("--n", type=int, default=200)
@@ -351,7 +366,7 @@ def main() -> None:
         private_dim=args.private_dim,
     )
 
-    report = run_mgsm(cfg) if args.benchmark in ("mgsm", "mgsm_pro") else run_belebele(cfg)
+    report = run_mgsm(cfg) if args.benchmark in ("mgsm", "mgsm_pro", "afrimgsm") else run_belebele(cfg)
 
     out_dir = Path(args.output_dir)
     ts = report.timestamp_utc

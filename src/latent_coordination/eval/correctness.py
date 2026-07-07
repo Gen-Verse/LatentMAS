@@ -401,6 +401,49 @@ def load_mgsm_pro_tasks(
     return items[:n] if n is not None else items
 
 
+# masakhane/afrimgsm keys language by 3-letter config name (not ISO-639-1) --
+# translated GSM8k subset covering 16 African languages plus English/French
+# controls. Fills the gap MGSM_SUPPORTED_LANGUAGES leaves for Amharic and
+# African languages generally (juletxara/mgsm has none). Verified via
+# datasets.get_dataset_config_names("masakhane/afrimgsm"): 250 test / 8 train
+# rows per language.
+AFRIMGSM_SUPPORTED_LANGUAGES = frozenset({
+    "am", "ee", "en", "fr", "ha", "ig", "rw", "ln", "lg", "om",
+    "sn", "st", "sw", "tw", "vai", "wo", "xh", "yo", "zu",
+})
+_AFRIMGSM_LANG_TO_CONFIG = {
+    "am": "amh", "ee": "ewe", "en": "eng", "fr": "fra", "ha": "hau",
+    "ig": "ibo", "rw": "kin", "ln": "lin", "lg": "lug", "om": "orm",
+    "sn": "sna", "st": "sot", "sw": "swa", "tw": "twi", "vai": "vai",
+    "wo": "wol", "xh": "xho", "yo": "yor", "zu": "zul",
+}
+
+
+def load_afrimgsm_tasks(language: str = "en", split: str = "test", n: Optional[int] = None):
+    """Load AfriMGSM tasks (translated GSM8k subset) from the HF datasets hub.
+
+    Returns a list of dicts with keys: ``question``, ``answer`` (int) -- same
+    schema as :func:`load_mgsm_tasks`, so it's a drop-in benchmark option for
+    the same MGSM-shaped baseline runners and agent pipelines.
+
+    Raises:
+        ValueError: if ``language`` is outside AFRIMGSM_SUPPORTED_LANGUAGES.
+    """
+    if language not in AFRIMGSM_SUPPORTED_LANGUAGES:
+        raise ValueError(
+            f"AfriMGSM does not have data for language '{language}'. It only "
+            f"covers {sorted(AFRIMGSM_SUPPORTED_LANGUAGES)}."
+        )
+    try:
+        from datasets import load_dataset  # type: ignore
+    except ImportError as exc:
+        raise RuntimeError("datasets library required: pip install datasets") from exc
+    config = _AFRIMGSM_LANG_TO_CONFIG[language]
+    ds = load_dataset("masakhane/afrimgsm", config, split=split)
+    items = [{"question": row["question"], "answer": int(row["answer_number"])} for row in ds]
+    return items[:n] if n is not None else items
+
+
 def load_belebele_tasks(language: str = "eng_Latn", split: str = "test", n: Optional[int] = None):
     """Load Belebele reading-comprehension tasks from HF datasets.
 

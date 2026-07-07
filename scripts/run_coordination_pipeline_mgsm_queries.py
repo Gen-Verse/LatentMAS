@@ -12,6 +12,7 @@ import os
 import sys
 import time
 import traceback
+import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -27,6 +28,35 @@ from latent_coordination.topology.cvae_prior import CVAETopologyPrior, TrainingC
 
 
 logger = logging.getLogger(__name__)
+
+
+def _disable_auto_device_map_for_agent_pinning(scan_path: str) -> None:
+    """Keep per-agent YAML devices authoritative for this alternate runner.
+
+    The shared model loader reads compute_scan.json and turns any 2-GPU machine
+    into device_map="auto". That is useful for one huge model, but this MGSM
+    setup already assigns separate agents to cuda:0/cuda:1. Auto-sharding one
+    quantized agent across GPU/CPU can leave tokenizer inputs and embedding
+    weights on different devices, causing CUDA/CPU index_select failures.
+    """
+    path = Path(scan_path)
+    if not path.exists():
+        return
+    try:
+        scan = json.loads(path.read_text())
+        if int(scan.get("device_count", 0)) <= 1:
+            return
+        scan["actual_device_count"] = scan.get("device_count")
+        scan["actual_devices"] = scan.get("devices", [])
+        scan["device_count"] = 1
+        scan["devices"] = (scan.get("devices") or [])[:1]
+        path.write_text(json.dumps(scan, indent=2))
+        logger.info(
+            "Pinned agent placement by disabling shared-loader device_map='auto' in %s.",
+            path,
+        )
+    except Exception as exc:
+        logger.warning("Could not pin agent device placement via %s: %s", path, exc)
 
 
 class MGSMQueryCoordinationPipeline(CoordinationPipeline):
@@ -216,9 +246,11 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
 
 def main() -> int:
     args = base.parse_args()
-    base.run_compute_scan(
-        os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "compute_scan.json")
+    scan_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "compute_scan.json"
     )
+    base.run_compute_scan(scan_path)
+    _disable_auto_device_map_for_agent_pinning(scan_path)
 
     cfg = base.load_config(args.config)
     log_cfg = cfg.get("logging", {})

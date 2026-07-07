@@ -9,6 +9,12 @@
 #     <method:benchmark:language> [...] >> logs/baselines/<queue_name>.log 2>&1 &
 #
 # method ∈ {latentmas, thoughtcomm}; e.g. latentmas:mgsm:en latentmas:belebele:tha_Thai
+# Optional 4th colon field overrides --model_id (default: run script's own
+# default, Qwen/Qwen2.5-7B-Instruct) -- e.g.
+# latentmas:belebele:tha_Thai:aisingapore/Llama-SEA-LION-v3-8B-IT. Without
+# this, every spec silently ran on the default model regardless of what the
+# pre-fix reference point used, which produced a non-comparable result for
+# belebele:tha_Thai (pre-fix used SEA-LION, the bare queue spec used Qwen).
 set -u
 GPU=$1
 QUEUE=$2
@@ -25,17 +31,19 @@ log() { echo "[$(date -u +%FT%TZ)] [$QUEUE] $*"; }
 log "queue start gpu=$GPU specs=$*"
 RC_ALL=0
 for SPEC in "$@"; do
-  IFS=: read -r METHOD BENCH LANG <<< "$SPEC"
+  IFS=: read -r METHOD BENCH LANG MODEL_ID <<< "$SPEC"
   MODULE="latent_coordination.baselines.run_${METHOD}"
   OUT_DIR="results/baselines/${METHOD}"
   if compgen -G "${OUT_DIR}/${METHOD}_${BENCH}_${LANG}_*.json" > /dev/null; then
     log "SKIP $SPEC (post-fix result already exists)"
     continue
   fi
-  log "START $SPEC"
+  MODEL_ARGS=()
+  [ -n "${MODEL_ID:-}" ] && MODEL_ARGS=(--model_id "$MODEL_ID")
+  log "START $SPEC${MODEL_ID:+ (model_id=$MODEL_ID)}"
   nohup python -m "$MODULE" \
     --benchmark "$BENCH" --language "$LANG" --n 200 \
-    --device cuda:0 --load_in_8bit --output_dir "$OUT_DIR"
+    --device cuda:0 --load_in_8bit --output_dir "$OUT_DIR" "${MODEL_ARGS[@]}"
   RC=$?
   log "END $SPEC exit=$RC"
   [ "$RC" -ne 0 ] && RC_ALL=1

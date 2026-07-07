@@ -103,12 +103,19 @@ def parse_log(log_path: Path) -> Tuple[Dict[Tuple[str, str], List[str]], Dict[st
     starts = [m.start() for m in _RUN_START.finditer(text)]
     if not starts:
         raise RuntimeError(f"No pipeline start marker in {log_path}")
-    window = text[starts[-1]:]
+    # Scan every run-start window, not just the last: a mid-suite kill+resume
+    # (e.g. to pick up a code fix) appends a new start marker while leaving
+    # earlier, already-completed modes' unparsed-response lines earlier in the
+    # same file. Restricting to text[starts[-1]:] made those modes' raw
+    # responses permanently unrecoverable after any restart, silently
+    # reverting an already-applied reparse back to the stale rate.
+    bounds = starts + [len(text)]
+    windows = [text[bounds[i]:bounds[i + 1]] for i in range(len(bounds) - 1)]
 
     recovered: Dict[Tuple[str, str], List[str]] = {}
     routed: Dict[str, Dict[str, bool]] = {}
     mode, task = None, None
-    for line in window.splitlines():
+    for line in "\n".join(windows).splitlines():
         m = _MODE_LINE.search(line)
         if m:
             mode, task = m.group(1), None

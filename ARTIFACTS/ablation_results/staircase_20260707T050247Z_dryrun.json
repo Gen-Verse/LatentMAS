@@ -1,0 +1,2023 @@
+{
+  "timestamp": "20260707T050247Z",
+  "dry_run": true,
+  "stages": "all",
+  "rows": {
+    "0": {
+      "row_id": "0",
+      "name": "proxy_baseline",
+      "modules": "none",
+      "isolates": "starting point (old completeness proxy)",
+      "overrides": {
+        "benchmarks.mgsm.enabled": false,
+        "benchmarks.belebele.enabled": false,
+        "benchmarks.sea_vision.enabled": false,
+        "benchmarks.sea_safeguardbench.enabled": false,
+        "universal_latent_space.adapter_training.enabled": false,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "orchestration.routing_strategy": "attention",
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_0_proxy_baseline/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": false,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": false,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "attention",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": false,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": false,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": false
+          },
+          "belebele": {
+            "enabled": false
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_0_proxy_baseline/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "1": {
+      "row_id": "1",
+      "name": "rescored_baseline",
+      "modules": "none",
+      "isolates": "metric-change effect only (correctness metric applied)",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": false,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "orchestration.routing_strategy": "attention",
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_1_rescored_baseline/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": false,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": false,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "attention",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_1_rescored_baseline/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "2": {
+      "row_id": "2",
+      "name": "hub_regularized",
+      "modules": "A+B",
+      "isolates": "interlingua CKA-DAE hub value",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "orchestration.routing_strategy": "attention",
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_2_hub_regularized/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": false,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "attention",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_2_hub_regularized/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "3": {
+      "row_id": "3",
+      "name": "geometry_routed",
+      "modules": "A+B+D",
+      "isolates": "geometry-conditioned CVAE routing value",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "orchestration.routing_strategy": "cvae_topology",
+        "cvae.condition_on_geometry": true,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_3_geometry_routed/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": true,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "cvae_topology",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_3_geometry_routed/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "4": {
+      "row_id": "4",
+      "name": "latent_reasoned",
+      "modules": "A+B+D+C",
+      "isolates": "latent recurrent reasoning value",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "orchestration.routing_strategy": "cvae_topology",
+        "cvae.condition_on_geometry": true,
+        "latent_reasoning.enabled": true,
+        "verification.enabled": false,
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_4_latent_reasoned/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": true,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": true,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "cvae_topology",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_4_latent_reasoned/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "5": {
+      "row_id": "5",
+      "name": "closed_loop_full",
+      "modules": "A+B+D+C+E",
+      "isolates": "drift-verification + re-plan value (full system)",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "orchestration.routing_strategy": "cvae_topology",
+        "cvae.condition_on_geometry": true,
+        "latent_reasoning.enabled": true,
+        "verification.enabled": true,
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_5_closed_loop_full/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": true,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": true,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": true,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "cvae_topology",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_5_closed_loop_full/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "6": {
+      "row_id": "6",
+      "name": "verifier_disabled",
+      "modules": "A+B+D+C (E off)",
+      "isolates": "marginal utility of E vs row 5",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "orchestration.routing_strategy": "cvae_topology",
+        "cvae.condition_on_geometry": true,
+        "latent_reasoning.enabled": true,
+        "verification.enabled": false,
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_6_verifier_disabled/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": true,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": true,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "cvae_topology",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_6_verifier_disabled/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "7a_recon_only": {
+      "row_id": "7a_recon_only",
+      "name": "ab_split_recon_only",
+      "modules": "A+B (L_recon)",
+      "isolates": "reconstruction term alone",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "universal_latent_space.adapter_training.mu_cka": 0.0,
+        "universal_latent_space.adapter_training.gamma_dae": 0.0,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "orchestration.routing_strategy": "attention",
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_7a_recon_only_ab_split_recon_only/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 0.0,
+            "gamma_dae": 0.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": false,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "attention",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_7a_recon_only_ab_split_recon_only/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "7a_recon_cka": {
+      "row_id": "7a_recon_cka",
+      "name": "ab_split_recon_cka",
+      "modules": "A+B (L_recon + L_CKA)",
+      "isolates": "CKA alignment term's marginal value",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "universal_latent_space.adapter_training.gamma_dae": 0.0,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "orchestration.routing_strategy": "attention",
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_7a_recon_cka_ab_split_recon_cka/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 1.0,
+            "gamma_dae": 0.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": false,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "attention",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_7a_recon_cka_ab_split_recon_cka/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    },
+    "7a_recon_dae": {
+      "row_id": "7a_recon_dae",
+      "name": "ab_split_recon_dae",
+      "modules": "A+B (L_recon + L_DAE)",
+      "isolates": "DAE robustness term's marginal value",
+      "overrides": {
+        "benchmarks.mgsm.enabled": true,
+        "benchmarks.belebele.enabled": true,
+        "universal_latent_space.adapter_training.enabled": true,
+        "universal_latent_space.adapter_training.mu_cka": 0.0,
+        "latent_reasoning.enabled": false,
+        "verification.enabled": false,
+        "orchestration.routing_strategy": "attention",
+        "communication.eval_modes": [
+          "single_agent_baseline",
+          "token_based_mas",
+          "latent_based_mas_ours"
+        ]
+      },
+      "derived_config": {
+        "project": {
+          "name": "latent_coordination",
+          "version": "0.2.0",
+          "description": "Decentralized multi-agent reasoning with CVAE topology priors and latent state transfer",
+          "output_dir": "ARTIFACTS/ablation_results/row_7a_recon_dae_ab_split_recon_dae/results",
+          "seed": 42
+        },
+        "agents": [
+          {
+            "id": "orchestrator",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "orchestrator",
+            "device": "cuda:0",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          },
+          {
+            "id": "translation_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "translation",
+            "device": "cuda:1",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 256
+          },
+          {
+            "id": "reasoning_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "reasoning",
+            "device": "cuda:2",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 512
+          },
+          {
+            "id": "safety_agent",
+            "model_id": "aisingapore/Llama-SEA-LION-v3-8B-IT",
+            "role": "safety",
+            "device": "cuda:3",
+            "torch_dtype": "float16",
+            "load_in_8bit": true,
+            "max_new_tokens": 128
+          }
+        ],
+        "universal_latent_space": {
+          "universal_dim": 2048,
+          "adapter_hidden_dim": 1024,
+          "adapter_dropout": 0.1,
+          "adapter_training": {
+            "enabled": true,
+            "n_samples": 64,
+            "n_epochs": 50,
+            "lr": 0.001,
+            "batch_size": 32,
+            "dae_sigma": 0.1,
+            "mu_cka": 0.0,
+            "gamma_dae": 1.0
+          }
+        },
+        "latent_reasoning": {
+          "enabled": false,
+          "max_steps": 10,
+          "tau_exit": 0.8
+        },
+        "verification": {
+          "enabled": false,
+          "tau_drift": 0.5,
+          "n_epochs": 100,
+          "lr": 0.001,
+          "probe_arch": "linear",
+          "mlp_hidden_dim": 256
+        },
+        "cvae": {
+          "query_dim": 64,
+          "graph_dim": 9,
+          "condition_on_geometry": false,
+          "geo_profile_path": "results/mechanistic/geo_profiles.json",
+          "latent_dim": 32,
+          "encoder_hidden": [
+            128,
+            64
+          ],
+          "decoder_hidden": [
+            64,
+            128
+          ],
+          "training": {
+            "n_epochs": 100,
+            "lr": 0.001,
+            "beta_max": 4.0,
+            "warmup_epochs": 10,
+            "batch_size": 64
+          },
+          "checkpoint_path": ".cache/checkpoints/coordination/cvae"
+        },
+        "orchestration": {
+          "n_intent_centroids": 8,
+          "routing_strategy": "attention",
+          "timeout_per_agent_s": 60
+        },
+        "communication": {
+          "modes": [
+            "token",
+            "latent",
+            "hybrid"
+          ],
+          "track_all": true,
+          "latent_transfer_layer": -4,
+          "eval_modes": [
+            "single_agent_baseline",
+            "token_based_mas",
+            "latent_based_mas_ours"
+          ],
+          "backend": "auto"
+        },
+        "benchmarks": {
+          "flores_plus": {
+            "translation_metrics": {
+              "chrf": true,
+              "xcomet": false,
+              "cometkiwi": false
+            },
+            "n_samples_per_language": 50
+          },
+          "sea_vision": {
+            "enabled": true,
+            "n_samples_per_language": 200,
+            "local_dir": null
+          },
+          "sea_safeguardbench": {
+            "enabled": true,
+            "n_samples": 200
+          },
+          "mgsm": {
+            "enabled": true
+          },
+          "belebele": {
+            "enabled": true
+          }
+        },
+        "ablation": {
+          "extra_rows": []
+        },
+        "visualization": {
+          "save_formats": [
+            "png",
+            "pdf"
+          ],
+          "dpi": 300,
+          "style": "seaborn-v0_8-whitegrid",
+          "plots": [
+            "agent_topology",
+            "cvae_latent_space",
+            "topology_evolution",
+            "transfer_matrix",
+            "token_vs_latent_cost",
+            "accuracy_vs_latency",
+            "scalability",
+            "universal_space_embeddings",
+            "transfer_trajectory",
+            "intent_centroids",
+            "communication_timeline"
+          ]
+        },
+        "checkpointing": {
+          "enabled": true,
+          "interval_stages": 1,
+          "keep_last_n": 5,
+          "checkpoint_dir": "ARTIFACTS/ablation_results/row_7a_recon_dae_ab_split_recon_dae/checkpoints"
+        },
+        "logging": {
+          "level": "INFO",
+          "log_dir": "logs/coordination",
+          "json_logs": true
+        },
+        "parallelism": {
+          "n_workers": 4,
+          "use_asyncio": true
+        }
+      }
+    }
+  }
+}

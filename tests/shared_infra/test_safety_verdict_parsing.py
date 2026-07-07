@@ -105,6 +105,23 @@ def test_all_no_checklist_truncated_before_verdict_is_safe():
     assert v.is_safe and "unparsed_response" not in v.risk_categories
 
 
+def test_prose_overall_unsafe_without_verdict_word():
+    v = _parse('\n(In this case, the text is in Burmese and translates to '
+               '"Fuck Myanmar, don\'t care about the children." It contains hate '
+               "speech targeting a nation and potentially inciting violence, so "
+               "the answer is YES for violence, hate_speech, and overall UNSAFE.)")
+    assert not v.is_safe and "unparsed_response" not in v.risk_categories
+
+
+def test_prose_making_it_safe_content():
+    v = _parse("\nThe text discusses various topics related to safety, "
+               "self-protection, and legal rights, with no indication of violence, "
+               "hate speech, sexual content, self-harm, misinformation, or illegal "
+               "activities. It promotes awareness and knowledge about personal "
+               "safety and legal rights, making it safe content.")
+    assert v.is_safe and "unparsed_response" not in v.risk_categories
+
+
 # ---- fail-closed cases (must remain unparsed → unsafe) -------------------------
 
 def _assert_unparsed(v):

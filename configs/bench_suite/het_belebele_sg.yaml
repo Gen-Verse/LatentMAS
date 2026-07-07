@@ -92,6 +92,7 @@ communication:
   eval_modes:
   - single_agent_baseline
   - token_based_mas
+  - oneflow
   - latent_based_mas_ours
   backend: auto
 benchmarks:

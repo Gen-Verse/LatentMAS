@@ -435,9 +435,9 @@ class MultiAgentBenchmarkRunner:
             return 1.0  # no safety agent = assume safe
         return sum(safety_verdicts) / len(safety_verdicts)
 
-    # Communication modes. The first two are token-only (consume agent output_text and are
+    # Communication modes. The first three are token-only (consume agent output_text and are
     # vLLM-eligible); the last transfers hidden states and therefore requires the HF backend.
-    TOKEN_ONLY_MODES = ("single_agent_baseline", "token_based_mas")
+    TOKEN_ONLY_MODES = ("single_agent_baseline", "token_based_mas", "oneflow")
     LATENT_MODES = ("latent_based_mas_ours",)
     ALL_MODES = TOKEN_ONLY_MODES + LATENT_MODES
 
@@ -632,6 +632,118 @@ class MultiAgentBenchmarkRunner:
         )
         return metrics, state["answers"]
 
+    def _get_oneflow_agents(self, router) -> Dict[str, object]:
+        """Build (once, cached) the OneFlow role-agents: one strong backbone
+        role-playing every step of the canonical sequence.
+
+        OneFlow's distinction from ``token_based_mas`` is using a SINGLE
+        model's weights for every role instead of the heterogeneous roster;
+        its distinction from ``single_agent_baseline`` is executing the full
+        multi-step sequence (translation-style, then reasoning-style, then
+        safety-style) rather than a single one-shot pass. Concretely: pick
+        the same "primary" agent single_agent_baseline already selects (via
+        ``_pick_single_agent``), then construct light-weight role-flavored
+        wrapper agents (translation/reasoning/safety prompt templates) that
+        share that ONE already-loaded model+tokenizer instead of each
+        loading their own copy -- reusing the model_id's weights 3x would
+        triple GPU memory for no benefit, since the point is one backbone
+        under different prompts, not three independently-loaded models that
+        happen to have the same id.
+        """
+        cached = getattr(self, "_oneflow_agents_cache", None)
+        if cached is not None:
+            return cached
+
+        # Any real task routes to the same registered agent pool; use the
+        # first task-independent selection (no safety-benchmark preference)
+        # to pick the primary backbone consistently.
+        primary_aid = next(
+            (aid for aid, a in router.agents.items()
+             if getattr(getattr(a, "config", None), "role", None) != "safety"),
+            next(iter(router.agents)),
+        )
+        primary = router.agents[primary_aid]
+        primary._ensure_model_loaded()
+
+        from latent_coordination.agents.base_agent import AgentConfig
+        from latent_coordination.agents.specialized_agents import (
+            TranslationAgent, ReasoningAgent, SafetyAgent,
+        )
+        base_cfg = primary.config
+        role_classes = {
+            "translation": TranslationAgent,
+            "reasoning": ReasoningAgent,
+            "safety": SafetyAgent,
+        }
+        agents: Dict[str, object] = {}
+        for role, cls in role_classes.items():
+            if role == base_cfg.role:
+                agents[role] = primary
+                continue
+            cfg = AgentConfig(
+                agent_id=f"oneflow_{role}",
+                model_id=base_cfg.model_id,
+                role=role,
+                device=base_cfg.device,
+                hidden_dim=base_cfg.hidden_dim,
+                load_in_8bit=base_cfg.load_in_8bit,
+                load_in_4bit=base_cfg.load_in_4bit,
+                max_new_tokens=base_cfg.max_new_tokens,
+                dtype=base_cfg.dtype,
+            )
+            shadow = cls(cfg)
+            # Share the already-loaded weights instead of loading a second
+            # copy of the same model_id.
+            shadow._model = primary._model
+            shadow._tokenizer = primary._tokenizer
+            shadow._is_loaded = True
+            agents[role] = shadow
+
+        self._oneflow_agents_cache = agents
+        logger.info(
+            "OneFlow: backbone='%s' (role=%s) role-playing translation/reasoning/safety.",
+            base_cfg.model_id, base_cfg.role,
+        )
+        return agents
+
+    def _process_task_oneflow(self, router, task):
+        from latent_coordination.agents.base_agent import AgentTask
+        from latent_coordination.eval.scoring import is_safety_response, select_answer
+        agents = self._get_oneflow_agents(router)
+        # Mirror token_based_mas's canonical sequence (translate -> reason ->
+        # safety-check), but every step is the SAME backbone under a
+        # different role prompt rather than a different specialized agent.
+        context = task.context or ""
+        step_responses = []
+        token_cost = 0.0
+        for role in ("translation", "reasoning", "safety"):
+            agent = agents[role]
+            text_task = AgentTask(
+                task_id=f"{task.task_id}_oneflow_{role}",
+                query=task.query,
+                context=context,
+                latent_state=None,
+                target_language=task.target_language,
+            )
+            resp = agent.process(text_task)
+            context = resp.output_text
+            token_cost += self._count_tokens(resp.output_text, agent)
+            step_responses.append(resp)
+        answer = select_answer(step_responses)
+        safety = [r for r in step_responses if is_safety_response(r)]
+        return answer, safety, token_cost
+
+    def _eval_oneflow(self, router, tasks, checkpoint_manager=None, cache_key=None):
+        state = self._run_mode_chunked(
+            "oneflow",
+            lambda task: self._process_task_oneflow(router, task),
+            tasks, checkpoint_manager, cache_key,
+        )
+        metrics = self._finalize_mode_metrics(
+            "oneflow", state, tasks, router, safety_rate_source="safety",
+        )
+        return metrics, state["answers"]
+
     def run_eval(
         self,
         router,
@@ -714,6 +826,10 @@ class MultiAgentBenchmarkRunner:
                 )
             elif mode == "token_based_mas":
                 metrics, responses = self._eval_token_based(
+                    router, tasks, checkpoint_manager=checkpoint_manager, cache_key=cache_key,
+                )
+            elif mode == "oneflow":
+                metrics, responses = self._eval_oneflow(
                     router, tasks, checkpoint_manager=checkpoint_manager, cache_key=cache_key,
                 )
             else:

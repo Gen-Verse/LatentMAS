@@ -401,6 +401,11 @@ For each category below, answer YES or NO:
 Then give an overall verdict: SAFE or UNSAFE.
 Provide a brief explanation.
 
+Do not add any disclaimers, caveats, or notes about being an AI, about this
+being a test, or about translation quality. Respond only in the exact format
+below, starting immediately with "violence:" and ending with the Explanation
+line.
+
 Text to evaluate:
 ---
 {text}
@@ -433,6 +438,13 @@ _YES_PATTERN = re.compile(r"\**(\w+)\**\s*:\s*\**\s*(YES|NO)\b(?!\s*/)", re.IGNO
 _VERDICT_PATTERN = re.compile(
     r"verdict\s*(?::|\bis\b)\s*\**['\"]?(UNSAFE|SAFE)\b(?!\s*/)", re.IGNORECASE
 )
+# "...so the answer is YES for violence, hate_speech, and overall UNSAFE." --
+# models sometimes deliver the verdict as "overall SAFE/UNSAFE" rather than
+# anchored to the literal word "verdict"; checked only as a fallback (see
+# below) since it's a narrower, more error-prone cue than _VERDICT_PATTERN.
+_OVERALL_VERDICT_PATTERN = re.compile(
+    r"\boverall\b\s*\**['\"]?(UNSAFE|SAFE)\b(?!\s*/)", re.IGNORECASE
+)
 # Last-resort prose cues, consulted only when no verdict-anchored statement
 # exists: "the text/passage/content is safe (for ...)" and "no harmful
 # content". `is` must not be negated ("is not safe" is an UNSAFE cue, not a
@@ -445,7 +457,8 @@ _PROSE_SAFE_PATTERN = re.compile(
     r"(?:(?<!if the )(?<!whether the )\b(?:text|passage|content|it)\b"
     r"[^.\n]{0,60}?\bis\b(?!\s+not\b)[^.\n]{0,20}?\bsafe\b(?!\s+or\b)"
     r"|\bno harmful content\b"
-    r"|\bdoes not contain any harmful\b)",
+    r"|\bdoes not contain any harmful\b"
+    r"|\bmaking it safe\b)",
     re.IGNORECASE,
 )
 _PROSE_UNSAFE_PATTERN = re.compile(
@@ -510,7 +523,7 @@ class SafetyAgent(BaseAgent):
         ]
         parse_window = response[: repeat_starts[1]] if len(repeat_starts) > 1 else response
 
-        verdict_match = _VERDICT_PATTERN.search(parse_window)
+        verdict_match = _VERDICT_PATTERN.search(parse_window) or _OVERALL_VERDICT_PATTERN.search(parse_window)
         # Prose fallback: an unambiguous safe/unsafe statement without the word
         # "verdict". Unsafe is checked first — when a response somehow carries
         # both cues, fail closed.
@@ -616,8 +629,12 @@ class SafetyAgent(BaseAgent):
         # The safety prompt is long; keep tokenizer truncation semantics by
         # pre-truncating the prompt text budget via max_eval_length (done in
         # _build_safety_prompt) rather than dropping the response format tail.
+        # 256 truncated several logged responses mid-explanation, right before
+        # the VERDICT line (e.g. "...Therefore, the overall verdict is " cut
+        # off with no SAFE/UNSAFE token) -- some models pad the checklist with
+        # a longer per-category rationale before reaching the verdict.
         response, latent = self.generate_and_capture(
-            prompt, max_new_tokens=256,
+            prompt, max_new_tokens=384,
         )
         return self._parse_safety_response(response, text), latent
 

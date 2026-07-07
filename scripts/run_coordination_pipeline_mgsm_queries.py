@@ -59,6 +59,40 @@ def _disable_auto_device_map_for_agent_pinning(scan_path: str) -> None:
         logger.warning("Could not pin agent device placement via %s: %s", path, exc)
 
 
+def _pin_quantized_model_loads_to_agent_devices() -> None:
+    """Patch the shared loader so quantized agents stay on their YAML device.
+
+    This alternate runner is intentionally a multi-agent placement experiment:
+    translation on cuda:0, reasoning/safety on cuda:1. The shared loader's
+    compute-scan path is designed for single-model sharding and can set
+    device_map="auto" before loading. Passing an explicit map prevents that
+    path and keeps each quantized model internally consistent.
+    """
+    try:
+        import shared.model_loader as model_loader
+    except Exception as exc:
+        logger.warning("Could not import shared.model_loader for placement patch: %s", exc)
+        return
+
+    original = model_loader.load_model_and_tokenizer
+
+    if getattr(original, "_mgsm_query_pinned", False):
+        return
+
+    def pinned_load_model_and_tokenizer(spec):
+        if (getattr(spec, "load_in_8bit", False) or getattr(spec, "load_in_4bit", False)) and getattr(spec, "device_map", None) is None:
+            spec.device_map = {"": getattr(spec, "device", None) or "cuda:0"}
+            logger.info(
+                "Pinned quantized model '%s' to device_map=%s for MGSM-query runner.",
+                getattr(spec, "model_id", "<unknown>"),
+                spec.device_map,
+            )
+        return original(spec)
+
+    pinned_load_model_and_tokenizer._mgsm_query_pinned = True
+    model_loader.load_model_and_tokenizer = pinned_load_model_and_tokenizer
+
+
 class MGSMQueryCoordinationPipeline(CoordinationPipeline):
     """CoordinationPipeline variant that avoids gated FLORES+ dependencies."""
 
@@ -251,6 +285,7 @@ def main() -> int:
     )
     base.run_compute_scan(scan_path)
     _disable_auto_device_map_for_agent_pinning(scan_path)
+    _pin_quantized_model_loads_to_agent_devices()
 
     cfg = base.load_config(args.config)
     log_cfg = cfg.get("logging", {})

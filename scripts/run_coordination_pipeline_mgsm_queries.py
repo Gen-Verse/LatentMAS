@@ -154,6 +154,7 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
     if getattr(cls, "_mgsm_reasoning_protected", False):
         return
 
+    original_single = cls._process_task_single_agent
     original_token = cls._process_task_token_based
     original_latent = cls._process_task_latent
 
@@ -220,6 +221,25 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
                 return resp
         return responses[-1]
 
+    def process_task_single_agent_reasoning_baseline(self, router, task):
+        if not is_math_reasoning_task(task):
+            return original_single(self, router, task)
+
+        rid = reasoning_agent_id(router)
+        if rid is None:
+            return original_single(self, router, task)
+
+        agent = router.agents[rid]
+        resp = agent.process(task)
+        cost = self._count_tokens(resp.output_text, agent)
+        safety = [resp] if is_safety_response(resp) else []
+        logger.info(
+            "Math single-agent baseline for %s uses reasoning agent %s.",
+            task.task_id,
+            rid,
+        )
+        return resp, safety, cost
+
     def process_task_token_based_reasoning_protected(self, router, task):
         if not is_math_reasoning_task(task):
             return original_token(self, router, task)
@@ -258,6 +278,7 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
         safety = [r for r in chain if is_safety_response(r)]
         return answer, safety, 0.0
 
+    cls._process_task_single_agent = process_task_single_agent_reasoning_baseline
     cls._process_task_token_based = process_task_token_based_reasoning_protected
     cls._process_task_latent = process_task_latent_reasoning_protected
     cls._mgsm_reasoning_protected = True

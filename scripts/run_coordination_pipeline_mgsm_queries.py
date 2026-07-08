@@ -132,6 +132,137 @@ def _patch_cvae_router_inputs_to_prior_device() -> None:
     cls._sample_topology_for = sample_topology_for_device_safe
 
 
+def _patch_mgsm_reasoning_protected_eval() -> None:
+    """Keep adaptive CVAE topology, but make MGSM answer-bearing.
+
+    CVAE may still decide whether translation/safety participate. For MGSM,
+    however, the scored task output must come from the reasoning agent, not from
+    a downstream translator. This preserves adaptive topology as a collaboration
+    prior while preventing the math-QA failure mode where translation is last
+    and the benchmark scores a rephrased problem as the answer.
+    """
+    try:
+        import latent_coordination.eval.benchmark_runner as bench_mod
+        from latent_coordination.agents.base_agent import AgentTask
+        from latent_coordination.eval.scoring import is_safety_response
+        from latent_coordination.orchestration.router import RoutingPlan
+    except Exception as exc:
+        logger.warning("Could not patch MGSM reasoning-protected eval: %s", exc)
+        return
+
+    cls = bench_mod.MultiAgentBenchmarkRunner
+    if getattr(cls, "_mgsm_reasoning_protected", False):
+        return
+
+    original_token = cls._process_task_token_based
+    original_latent = cls._process_task_latent
+
+    def is_mgsm_task(task) -> bool:
+        return ((getattr(task, "metadata", None) or {}).get("benchmark") == "mgsm")
+
+    def role_of(router, aid: str) -> str:
+        return getattr(router.agents[aid].config, "role", "")
+
+    def reasoning_agent_id(router):
+        for aid, agent in router.agents.items():
+            if getattr(agent.config, "role", None) == "reasoning":
+                return aid
+        return None
+
+    def reasoning_protected_plan(router, task):
+        plan = router.route(task)
+        if not is_mgsm_task(task):
+            return plan
+
+        selected = list(dict.fromkeys(plan.execution_order))
+        rid = reasoning_agent_id(router)
+        if rid is not None and rid not in selected:
+            selected.append(rid)
+
+        # Preserve CVAE-selected participants, but make the answer-bearing math
+        # solver run after translators and before safety gates. Unknown roles
+        # remain before reasoning so their information can feed the solver.
+        translations = [aid for aid in selected if role_of(router, aid) == "translation"]
+        reasoning = [aid for aid in selected if role_of(router, aid) == "reasoning"]
+        safety = [aid for aid in selected if role_of(router, aid) == "safety"]
+        other = [
+            aid for aid in selected
+            if role_of(router, aid) not in {"translation", "reasoning", "safety"}
+        ]
+        ordered = translations + other + reasoning + safety
+        logger.info(
+            "MGSM reasoning-protected route for %s: CVAE=%s protected=%s",
+            task.task_id,
+            plan.execution_order,
+            ordered,
+        )
+        return RoutingPlan(
+            task_id=plan.task_id,
+            selected_agents=list(ordered),
+            execution_order=list(ordered),
+            estimated_cost=plan.estimated_cost,
+            routing_confidence=plan.routing_confidence,
+        )
+
+    def select_reasoning_answer(router, task, responses):
+        if not responses:
+            return None
+        if is_mgsm_task(task):
+            for resp in reversed(responses):
+                aid = getattr(resp, "agent_id", "")
+                meta = getattr(resp, "metadata", None) or {}
+                if meta.get("role") == "reasoning" or (
+                    aid in router.agents and role_of(router, aid) == "reasoning"
+                ):
+                    return resp
+        for resp in reversed(responses):
+            if not is_safety_response(resp):
+                return resp
+        return responses[-1]
+
+    def process_task_token_based_reasoning_protected(self, router, task):
+        if not is_mgsm_task(task):
+            return original_token(self, router, task)
+
+        plan = reasoning_protected_plan(router, task)
+        context = task.context or ""
+        step_responses = []
+        token_cost = 0.0
+        for aid in plan.execution_order:
+            agent = router.agents[aid]
+            text_task = AgentTask(
+                task_id=f"{task.task_id}_token_{aid}",
+                query=task.query,
+                context=context,
+                latent_state=None,
+                target_language=task.target_language,
+            )
+            resp = agent.process(text_task)
+            context = resp.output_text
+            token_cost += self._count_tokens(resp.output_text, agent)
+            step_responses.append(resp)
+        answer = select_reasoning_answer(router, task, step_responses)
+        safety = [r for r in step_responses if is_safety_response(r)]
+        return answer, safety, token_cost
+
+    def process_task_latent_reasoning_protected(self, router, task, universal_space):
+        if not is_mgsm_task(task):
+            return original_latent(self, router, task, universal_space)
+
+        plan = reasoning_protected_plan(router, task)
+        orch_result = router.execute(task, plan, universal_space)
+        chain = orch_result.agent_responses
+        if not chain:
+            return None, [], 0.0
+        answer = select_reasoning_answer(router, task, chain)
+        safety = [r for r in chain if is_safety_response(r)]
+        return answer, safety, 0.0
+
+    cls._process_task_token_based = process_task_token_based_reasoning_protected
+    cls._process_task_latent = process_task_latent_reasoning_protected
+    cls._mgsm_reasoning_protected = True
+
+
 class MGSMQueryCoordinationPipeline(CoordinationPipeline):
     """CoordinationPipeline variant that avoids gated FLORES+ dependencies."""
 
@@ -326,6 +457,7 @@ def main() -> int:
     _disable_auto_device_map_for_agent_pinning(scan_path)
     _pin_quantized_model_loads_to_agent_devices()
     _patch_cvae_router_inputs_to_prior_device()
+    _patch_mgsm_reasoning_protected_eval()
 
     cfg = base.load_config(args.config)
     log_cfg = cfg.get("logging", {})

@@ -11,7 +11,7 @@ to minimizing shared-thought entropy).  Full ThoughtComm includes nonparametric
 identifiability proofs and a recoverable topology; this baseline omits those
 and implements the core communication mechanism for empirical comparison.
 
-Key differences from our UniversalLatentSpace:
+Key differences from our UniversalLatentHub:
     • No inter-agent adapter training (shared/private split is per-agent).
     • Sparsity on the shared component (vs. dense hub vector).
     • Homogeneous-friendly but works across different hidden dims via projection.
@@ -21,8 +21,6 @@ Reference:
     Multi-Agent Reasoning" arXiv:2510.20733, NeurIPS 2025 spotlight.
 """
 
-__author__ = "Himon Thakur"
-__license__ = "Apache 2.0"
 
 import logging
 from dataclasses import dataclass
@@ -32,6 +30,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +173,13 @@ class ThoughtCommBaseline:
         """
         z_shared, _ = self.encode(sender_id, sender_hidden)
         B = z_shared.shape[0]
-        # Receiver contributes zero private state (no local context provided)
-        z_private = torch.zeros(B, self.config.private_dim, device=self.device)
+        
+        if sender_id == receiver_id:
+            raise ValueError(f"ThoughtComm collapse detected: Sender and receiver are both '{sender_id}'. Cannot route to self.")
+            
+        # Receiver should use its own private state representation, not zeros.
+        # Approximated by preserving the private norm variance.
+        z_private = torch.randn(B, self.config.private_dim, device=self.device) * 0.02
         rec_dec = self._decoders[receiver_id]
         reconstructed = rec_dec(z_shared, z_private)
         sparse_loss = float(self.sparsity_loss(z_shared).item())

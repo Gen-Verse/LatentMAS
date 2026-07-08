@@ -10,9 +10,10 @@ __copyright__ = "Copyright 2026, Lineesha Kamana, Himon Thakur"
 __credits__ = ["Lineesha Kamana", "Himon Thakur"]
 __license__ = "Apache 2.0"
 __version__ = "0.0.1"
-__maintainer__ = "Lineesha Kamana"
-__email__ = "lpk5305@psu.edu, hthakur@uccs.edu"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
 
 try:
     # Avoid accidentally importing a vendored `vllm/` inside the repo.
@@ -161,6 +162,30 @@ class ModelWrapper:
             _ensure_pad_token(self.tokenizer)
             return  # skip loading the transformers model
 
+        # --- ORCHESTRATION VIA COMPUTE SCAN ---
+        import json
+        scan_file = "compute_scan.json"
+        num_gpus = 0
+        total_mem_gb = 0
+        if os.path.exists(scan_file):
+            try:
+                with open(scan_file, "r") as f:
+                    scan = json.load(f)
+                    num_gpus = scan.get("device_count", 0)
+                    devices = scan.get("devices", [])
+                    total_mem_gb = sum(d.get("total_memory_gb", 0) for d in devices)
+                    
+                    if num_gpus > 1 and str(device) != "auto" and not self.use_vllm:
+                        print(f"[Orchestration] Detected {num_gpus} GPUs. Forcing device_map='auto' for accelerate.")
+                        device = "auto"
+            except Exception as e:
+                print(f"[Orchestration] Failed to parse compute_scan.json: {e}")
+
+        use_quantization = False
+        if total_mem_gb > 0 and total_mem_gb < 24 and str(device) == "auto" and not self.use_vllm:
+            print("[Orchestration] Low memory detected, enabling bitsandbytes 8-bit quantization.")
+            use_quantization = True
+
         if self.use_vllm:
             
             tp_size = max(1, int(getattr(args, "tensor_parallel_size", 1)))
@@ -201,18 +226,40 @@ class ModelWrapper:
         # fallback: normal transformers path
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
         _ensure_pad_token(self.tokenizer)
-        with torch.no_grad():
-            if device == "auto":
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    torch_dtype=_default_model_dtype(device),
-                    device_map="auto",
-                )
-            else:
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    model_name,
-                    torch_dtype=_default_model_dtype(device),
-                )
+        
+        # Optional Unsloth support
+        if "unsloth" in model_name.lower():
+            try:
+                from unsloth import FastLanguageModel
+                print("[Orchestration] Unsloth model detected. Using FastLanguageModel.")
+                with torch.no_grad():
+                    self.model, self.tokenizer = FastLanguageModel.from_pretrained(
+                        model_name=model_name,
+                        dtype=_default_model_dtype(device),
+                        load_in_8bit=use_quantization,
+                        device_map="auto" if device == "auto" else {"": device}
+                    )
+            except ImportError as exc:
+                raise ImportError(
+                    "Unsloth model requested but 'unsloth' package is not installed. "
+                    "Refusing to fall back to default transformers."
+                ) from exc
+
+        if not hasattr(self, "model"):
+            with torch.no_grad():
+                if device == "auto":
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=_default_model_dtype(device),
+                        device_map="auto",
+                        load_in_8bit=use_quantization,
+                    )
+                else:
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_name,
+                        torch_dtype=_default_model_dtype(device),
+                        load_in_8bit=use_quantization,
+                    )
         if len(self.tokenizer) != self.model.get_input_embeddings().weight.shape[0]:
             self.model.resize_token_embeddings(len(self.tokenizer))
         

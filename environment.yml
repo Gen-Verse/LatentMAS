@@ -1,5 +1,17 @@
 name: new_env
 
+# NOTE: after `conda env create -f environment.yml`, also drop
+# etc/conda/activate.d/zz_ld_library_path.sh (+ matching deactivate.d script) into
+# this env, exporting LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH". Some
+# pip-installed compiled extensions (e.g. scipy's HiGHS solver, pulled in
+# transitively by `transformers`' object-detection loss module) need a newer
+# libstdc++ (CXXABI_1.3.15+) than /usr/lib/x86_64-linux-gnu/libstdc++.so.6 provides.
+# If something else in the process (e.g. `datasets`/pyarrow) loads the system
+# libstdc++.so.6 first, later dlopen()s of that soname reuse it and crash with
+# "version `CXXABI_1.3.15' not found" -- even though this conda env ships a
+# new-enough libstdc++.so.6 of its own. The activate-hook makes the env's copy
+# authoritative so import order stops mattering.
+
 channels:
   - conda-forge
   - defaults

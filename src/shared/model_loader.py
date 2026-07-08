@@ -1,6 +1,6 @@
 """
 Shared model loader — single source of truth for HuggingFace model/tokenizer loading
-across all three projects (surgical_mrre, mechanistic_disentangle, latent_coordination).
+across all three projects (mrre_drift, latent_coordination, latent_coordination).
 
 Design goals
 ------------
@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import os
+import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
 
@@ -28,11 +29,26 @@ import torch
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
 __license__ = "Apache 2.0"
-__version__ = "0.1.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
 
+
 logger = logging.getLogger(__name__)
+
+# Registry of supported and recommended models for orchestration
+SUPPORTED_MODELS = {
+    "qwen": "Qwen/Qwen3.5-32B-Instruct",         # Latest Qwen model
+    "qwen-sea-lion": "aisingapore/qwen2-sea-lion-7b-instruct", # Qwen-SEA-LION from aisingapore
+    "llama-sea-lion": "aisingapore/llama3-sea-lion-8b-instruct", # Llama-SEA-LION from aisingapore
+    "aya-expanse": "CohereForAI/aya-expanse-8b", # aya-expanse from CohereLabs
+    "sailor2": "sail/Sailor2-8B-Chat",           # Sailor2 from sail
+    "eurollm": "utter-project/EuroLLM-9B",       # EuroLLM from utter-project
+    "seallm": "SEALLMs/SeaLLMs-v3-7B-Chat",      # SEALLM from SEALLMs
+}
 
 # bitsandbytes int8/4bit kernels require the model be placed via device_map.
 _DTYPE_MAP = {
@@ -66,18 +82,23 @@ def _supports_bf16(device: Optional[str]) -> bool:
 
 
 def resolve_dtype(dtype: str, device: Optional[str]) -> torch.dtype:
-    """Map a dtype string to ``torch.dtype``, downgrading bf16 on pre-Ampere GPUs."""
+    """Map a dtype string to ``torch.dtype``.
+
+    G2 compliance: raises ``AssertionError`` if bfloat16 is requested on a
+    pre-Ampere GPU (compute capability < 8.0, e.g. V100).  This is a hard
+    guard — callers must explicitly request float16 on V100 hardware.
+    """
     resolved = _DTYPE_MAP.get(str(dtype).lower())
     if resolved is None:
         raise ValueError(
             f"Unknown dtype '{dtype}'. Valid: {sorted(set(_DTYPE_MAP))}."
         )
     if resolved is torch.bfloat16 and not _supports_bf16(device):
-        logger.warning(
-            "bfloat16 requested but GPU compute capability < 8.0 (e.g. V100). "
-            "Falling back to float16."
+        raise AssertionError(
+            f"bfloat16 requested on device '{device}' but GPU compute capability "
+            "< 8.0 (V100 is 7.0 — no native bf16 support). "
+            "Set dtype='float16' in your config. (G2 hardware envelope guard)"
         )
-        resolved = torch.float16
     return resolved
 
 
@@ -124,6 +145,28 @@ def load_model_and_tokenizer(
             "transformers is required to load models. Install with: pip install transformers"
         ) from exc
 
+    # --- ORCHESTRATION VIA COMPUTE SCAN ---
+    scan_file = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "compute_scan.json")
+    if os.path.exists(scan_file):
+        try:
+            with open(scan_file, "r") as f:
+                scan = json.load(f)
+                num_gpus = scan.get("device_count", 0)
+                devices = scan.get("devices", [])
+                total_mem_gb = sum(d.get("total_memory_gb", 0) for d in devices)
+                
+                # Multi-GPU via accelerate
+                if num_gpus > 1 and spec.device_map is None:
+                    logger.info("[Orchestration] Detected %d GPUs. Enabling accelerate device_map='auto'.", num_gpus)
+                    spec.device_map = "auto"
+                
+                # Low-memory quantization via bitsandbytes
+                if total_mem_gb > 0 and total_mem_gb < 24 and not (spec.load_in_8bit or spec.load_in_4bit):
+                    logger.info("[Orchestration] Total memory %.2f GB < 24 GB. Enabling bitsandbytes 8-bit quantization.", total_mem_gb)
+                    spec.load_in_8bit = True
+        except Exception as e:
+            logger.warning("Failed to parse compute_scan.json for orchestration: %s", e)
+
     quantized = spec.load_in_8bit or spec.load_in_4bit
     torch_dtype = resolve_dtype(spec.dtype, spec.device)
 
@@ -136,6 +179,26 @@ def load_model_and_tokenizer(
     if spec.attn_implementation:
         load_kwargs["attn_implementation"] = spec.attn_implementation
     load_kwargs.update(spec.extra)
+    
+    # Optional Unsloth fast inference if 'unsloth' in model id
+    if "unsloth" in spec.model_id.lower():
+        try:
+            from unsloth import FastLanguageModel
+            logger.info("[Orchestration] Unsloth model detected. Using FastLanguageModel.")
+            model, tokenizer = FastLanguageModel.from_pretrained(
+                model_name=spec.model_id,
+                dtype=torch_dtype,
+                load_in_4bit=spec.load_in_4bit,
+                load_in_8bit=spec.load_in_8bit,
+                device_map=spec.device_map or "auto"
+            )
+            model.eval()
+            return model, tokenizer
+        except ImportError as exc:
+            raise ImportError(
+                "Unsloth model requested but 'unsloth' package is not installed. "
+                "Refusing to fall back to default transformers."
+            ) from exc
 
     if quantized:
         try:

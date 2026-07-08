@@ -1,0 +1,164 @@
+# Small MGSM run for the full latent_coordination pipeline.
+# This uses the homogeneous SEA-LION agent pool, trains the CVAE topology
+# prior and Universal Latent Space adapters, then evaluates:
+#   1. single_agent_baseline
+#   2. token_based_mas
+#   3. latent_based_mas_ours
+project:
+  name: bench_hom_mgsm_first10_cvae
+  version: 0.2.0
+  description: MGSM first-10/language run with CVAE topology routing and latent state transfer
+  output_dir: results/bench_suite/hom_mgsm_first10_cvae
+  seed: 42
+
+agents:
+- id: orchestrator
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: orchestrator
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 64
+- id: translation_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: translation
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 128
+- id: reasoning_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: reasoning
+  device: cuda:1
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 512
+- id: safety_agent
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  role: safety
+  device: cuda:1
+  torch_dtype: float16
+  load_in_8bit: true
+  max_new_tokens: 64
+
+universal_latent_space:
+  universal_dim: 2048
+  adapter_hidden_dim: 1024
+  adapter_dropout: 0.1
+  adapter_training:
+    enabled: true
+    n_samples: 64
+    n_epochs: 50
+    lr: 0.001
+    batch_size: 32
+    dae_sigma: 0.1
+    mu_cka: 1.0
+    gamma_dae: 1.0
+
+latent_reasoning:
+  enabled: false
+  max_steps: 10
+  tau_exit: 0.8
+
+verification:
+  enabled: false
+  tau_drift: 0.5
+  n_epochs: 100
+  lr: 0.001
+  probe_arch: linear
+  mlp_hidden_dim: 256
+
+cvae:
+  query_dim: 64
+  graph_dim: 9
+  condition_on_geometry: false
+  geo_profile_path: results/mechanistic/geo_profiles.json
+  latent_dim: 32
+  encoder_hidden:
+  - 128
+  - 64
+  decoder_hidden:
+  - 64
+  - 128
+  training:
+    n_epochs: 100
+    lr: 0.001
+    beta_max: 4.0
+    warmup_epochs: 10
+    batch_size: 64
+  checkpoint_path: .cache/checkpoints/bench_suite/hom_mgsm_first10_cvae/cvae
+
+orchestration:
+  n_intent_centroids: 8
+  routing_strategy: cvae_topology
+  timeout_per_agent_s: 180
+
+communication:
+  modes:
+  - token
+  - latent
+  - hybrid
+  track_all: true
+  latent_transfer_layer: -4
+  eval_modes:
+  - single_agent_baseline
+  - token_based_mas
+  - latent_based_mas_ours
+  backend: auto
+
+benchmarks:
+  flores_plus:
+    enabled: false
+    translation_metrics:
+      chrf: true
+      xcomet: false
+      cometkiwi: false
+  mgsm:
+    enabled: true
+    n_samples: 10
+    languages: &mgsm_langs
+    - bn
+    - de
+    - en
+    - es
+    - fr
+    - ja
+    - ru
+    - sw
+    - te
+    - th
+    - zh
+
+ablation:
+  extra_rows: []
+
+visualization:
+  save_formats:
+  - png
+  - pdf
+  dpi: 300
+  style: seaborn-v0_8-whitegrid
+  plots:
+  - agent_topology
+  - cvae_latent_space
+  - token_vs_latent_cost
+  - accuracy_vs_latency
+  - scalability
+  - intent_centroids
+
+checkpointing:
+  enabled: true
+  interval_stages: 1
+  keep_last_n: 5
+  checkpoint_dir: .cache/checkpoints/bench_suite/hom_mgsm_first10_cvae
+
+logging:
+  level: INFO
+  log_dir: logs/coordination
+  json_logs: true
+
+parallelism:
+  n_workers: 4
+  use_asyncio: true
+
+target_languages: *mgsm_langs

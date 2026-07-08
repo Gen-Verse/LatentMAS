@@ -95,6 +95,11 @@ class TrainingConfig:
 
     z_dim: int = 64
     query_dim: int = 128
+    # Module D geometry conditioning (strategy.md §4.2): when > 0 the CVAE
+    # conditions on x = [q_emb ‖ Geo_L], where Geo_L is the precomputed
+    # per-language mechanistic risk vector (topology.geo_profile). 0 = off
+    # (query-only conditioning, backward compatible).
+    geo_dim: int = 0
     graph_hidden_dim: int = 256
     encoder_hidden_dim: int = 256
     decoder_hidden_dim: int = 256
@@ -609,13 +614,15 @@ class CVAETopologyPrior(nn.Module):
             hidden_dim=config.graph_hidden_dim,
             output_dim=config.graph_hidden_dim,
         )
-        enc_input_dim = config.graph_hidden_dim + config.query_dim
+        # Geometry conditioning widens BOTH the encoder and decoder condition:
+        # q(z | G, [q ‖ Geo_L]) and p(G | z, [q ‖ Geo_L]).
+        enc_input_dim = config.graph_hidden_dim + config.query_dim + config.geo_dim
         self.vae_encoder = _VAEEncoder(
             input_dim=enc_input_dim,
             hidden_dim=config.encoder_hidden_dim,
             z_dim=config.z_dim,
         )
-        dec_input_dim = config.z_dim + config.query_dim
+        dec_input_dim = config.z_dim + config.query_dim + config.geo_dim
         self.vae_decoder = _VAEDecoder(
             input_dim=dec_input_dim,
             hidden_dim=config.decoder_hidden_dim,
@@ -640,19 +647,52 @@ class CVAETopologyPrior(nn.Module):
     # Core CVAE methods
     # ------------------------------------------------------------------
 
-    def encode(self, G: Tensor, Q: Tensor) -> Tuple[Tensor, Tensor]:
-        """Encode (G, Q) pair into latent space parameters.
+    def _validate_geo(self, geo: Optional[Tensor], batch_size: int) -> Optional[Tensor]:
+        """Enforce that geo conditioning matches the configured geo_dim.
+
+        Zero-fallback policy: a geo_dim>0 model given no Geo_L (or vice versa)
+        raises instead of silently padding zeros — a zero vector would train
+        the prior to ignore Module D's core conditioning signal.
+        """
+        if self.config.geo_dim == 0:
+            if geo is not None:
+                raise ValueError(
+                    "This CVAETopologyPrior was built with geo_dim=0 (no geometry "
+                    "conditioning) but a Geo_L tensor was passed."
+                )
+            return None
+        if geo is None:
+            raise ValueError(
+                f"This CVAETopologyPrior conditions on Geo_L (geo_dim="
+                f"{self.config.geo_dim}) but none was passed. Look the vector up via "
+                "topology.geo_profile.GeoProfile — never substitute zeros."
+            )
+        if geo.dim() == 1:
+            geo = geo.unsqueeze(0).expand(batch_size, -1)
+        if geo.shape != (batch_size, self.config.geo_dim):
+            raise ValueError(
+                f"Geo_L batch has shape {tuple(geo.shape)}; expected "
+                f"({batch_size}, {self.config.geo_dim})."
+            )
+        return geo.to(next(self.parameters()).device).float()
+
+    def encode(self, G: Tensor, Q: Tensor, geo: Optional[Tensor] = None) -> Tuple[Tensor, Tensor]:
+        """Encode (G, Q[, Geo_L]) into latent space parameters.
 
         Args:
             G: Adjacency matrix batch, shape (B, N, N).
             Q: Query token batch, shape (B, seq_len).
+            geo: Optional Geo_L conditioning batch, shape (B, geo_dim);
+                required iff the model was built with ``geo_dim > 0``.
 
         Returns:
             Tuple ``(mu, logvar)`` each of shape (B, z_dim).
         """
         q_emb = self.query_encoder(Q)       # (B, query_dim)
         g_emb = self.graph_encoder(G)       # (B, graph_hidden_dim)
-        combined = torch.cat([g_emb, q_emb], dim=-1)
+        geo = self._validate_geo(geo, G.shape[0])
+        parts = [g_emb, q_emb] + ([geo] if geo is not None else [])
+        combined = torch.cat(parts, dim=-1)
         return self.vae_encoder(combined)   # (mu, logvar)
 
     def reparameterize(self, mu: Tensor, logvar: Tensor) -> Tensor:
@@ -674,35 +714,39 @@ class CVAETopologyPrior(nn.Module):
             return mu + eps * std
         return mu
 
-    def decode(self, z: Tensor, Q: Tensor) -> Tensor:
-        """Decode latent z conditioned on query Q.
+    def decode(self, z: Tensor, Q: Tensor, geo: Optional[Tensor] = None) -> Tensor:
+        """Decode latent z conditioned on query Q (and Geo_L when configured).
 
         Args:
             z: Latent vector batch, shape (B, z_dim).
             Q: Query token batch, shape (B, seq_len).
+            geo: Optional Geo_L conditioning batch, shape (B, geo_dim).
 
         Returns:
             Reconstructed adjacency probability matrix, shape (B, N, N).
         """
         q_emb = self.query_encoder(Q)        # (B, query_dim)
-        return self.vae_decoder(z, q_emb)   # (B, N, N)
+        geo = self._validate_geo(geo, z.shape[0])
+        cond = q_emb if geo is None else torch.cat([q_emb, geo], dim=-1)
+        return self.vae_decoder(z, cond)   # (B, N, N)
 
     def forward(
-        self, G: Tensor, Q: Tensor
+        self, G: Tensor, Q: Tensor, geo: Optional[Tensor] = None
     ) -> Tuple[Tensor, Tensor, Tensor]:
         """Full CVAE forward pass.
 
         Args:
             G: Adjacency matrix batch, shape (B, N, N).
             Q: Query token batch, shape (B, seq_len).
+            geo: Optional Geo_L conditioning batch (required iff geo_dim > 0).
 
         Returns:
             Tuple ``(recon_G, mu, logvar)`` where ``recon_G`` is shape (B, N, N)
             and ``mu``, ``logvar`` are each shape (B, z_dim).
         """
-        mu, logvar = self.encode(G, Q)
+        mu, logvar = self.encode(G, Q, geo=geo)
         z = self.reparameterize(mu, logvar)
-        recon_G = self.decode(z, Q)
+        recon_G = self.decode(z, Q, geo=geo)
         return recon_G, mu, logvar
 
     # ------------------------------------------------------------------
@@ -764,16 +808,19 @@ class CVAETopologyPrior(nn.Module):
         Q: Tensor,
         n_samples: int = 1,
         threshold: float = 0.5,
+        geo: Optional[Tensor] = None,
     ) -> Tensor:
         """Sample agent communication topologies for new queries.
 
-        Draws ``z ~ N(0, I)`` and decodes conditioned on ``Q``.  Returns a
-        binary adjacency matrix obtained by thresholding the decoder output.
+        Draws ``z ~ N(0, I)`` and decodes conditioned on ``Q`` (and ``Geo_L``
+        when the model was built with geo_dim > 0).  Returns a binary
+        adjacency matrix obtained by thresholding the decoder output.
 
         Args:
             Q: Query token tensor, shape (1, seq_len) or (B, seq_len).
             n_samples: Number of topology samples per query.
             threshold: Probability threshold for binarising adjacency.
+            geo: Optional Geo_L conditioning, shape (B, geo_dim) or (geo_dim,).
 
         Returns:
             Binary adjacency tensor, shape (B * n_samples, N, N).
@@ -781,8 +828,12 @@ class CVAETopologyPrior(nn.Module):
         self.eval()
         B, seq_len = Q.shape
         Q_rep = Q.repeat_interleave(n_samples, dim=0)  # (B*n_samples, seq_len)
+        geo_rep = None
+        if geo is not None:
+            geo_v = self._validate_geo(geo, B)
+            geo_rep = geo_v.repeat_interleave(n_samples, dim=0)
         z = torch.randn(B * n_samples, self.config.z_dim, device=self._device)
-        probs = self.decode(z, Q_rep)                  # (B*n_samples, N, N)
+        probs = self.decode(z, Q_rep, geo=geo_rep)     # (B*n_samples, N, N)
         return (probs > threshold).float()
 
     # ------------------------------------------------------------------

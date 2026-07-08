@@ -78,10 +78,48 @@ class _AgentEntry:
 
 
 # ---------------------------------------------------------------------------
-# UniversalLatentSpace
+# Interlingua regularization losses (Module A+B)
 # ---------------------------------------------------------------------------
 
-class UniversalLatentSpace:
+def unbiased_hsic(K: Tensor, L: Tensor) -> Tensor:
+    """Unbiased HSIC₁ estimator (Song et al. 2012) for kernel matrices K, L.
+
+    The strategy audit specifically required the *unbiased* minibatch estimator
+    for the CKA loss term — the naive biased estimator has batch-size-dependent
+    gradient bias that corrupts small-batch adapter training. Requires n >= 4.
+    """
+    n = K.shape[0]
+    if n < 4:
+        raise ValueError(f"Unbiased HSIC needs batch size >= 4, got {n}.")
+    K = K.clone().fill_diagonal_(0.0)
+    L = L.clone().fill_diagonal_(0.0)
+    ones = torch.ones(n, 1, device=K.device, dtype=K.dtype)
+    term1 = torch.trace(K @ L)
+    term2 = (ones.T @ K @ ones) * (ones.T @ L @ ones) / ((n - 1) * (n - 2))
+    term3 = (ones.T @ K @ L @ ones) * (2.0 / (n - 2))
+    return (term1 + term2.squeeze() - term3.squeeze()) / (n * (n - 3))
+
+
+def cka_loss_unbiased(X: Tensor, Y: Tensor, eps: float = 1e-8) -> Tensor:
+    """L_CKA = 1 − CKA(X, Y) with linear kernels and the unbiased HSIC₁ estimator.
+
+    X, Y are row-aligned activation batches (same prompts / paired examples),
+    shape (n, d_x) and (n, d_y).
+    """
+    K = X @ X.T
+    L = Y @ Y.T
+    hsic_xy = unbiased_hsic(K, L)
+    hsic_xx = unbiased_hsic(K, K)
+    hsic_yy = unbiased_hsic(L, L)
+    cka = hsic_xy / (torch.sqrt(hsic_xx.clamp(min=eps) * hsic_yy.clamp(min=eps)))
+    return 1.0 - cka
+
+
+# ---------------------------------------------------------------------------
+# UniversalLatentHub
+# ---------------------------------------------------------------------------
+
+class UniversalLatentHub:
     """Hub-and-spoke universal latent space for heterogeneous multi-agent systems.
 
     Each registered agent gets a pair of adapters:
@@ -98,7 +136,7 @@ class UniversalLatentSpace:
 
     Example::
 
-        uls = UniversalLatentSpace(universal_dim=256)
+        uls = UniversalLatentHub(universal_dim=256)
         uls.register_agent('llama', hidden_dim=4096)
         uls.register_agent('mistral', hidden_dim=4096)
         states = torch.randn(8, 4096)
@@ -121,7 +159,7 @@ class UniversalLatentSpace:
         self._history: List[TransferRecord] = []
 
         logger.info(
-            "UniversalLatentSpace: universal_dim=%d, device=%s",
+            "UniversalLatentHub: universal_dim=%d, device=%s",
             universal_dim,
             device,
         )
@@ -341,6 +379,127 @@ class UniversalLatentSpace:
         return results
 
     # ------------------------------------------------------------------
+    # Adapter training (Module A+B: interlingua CKA-DAE regularization)
+    # ------------------------------------------------------------------
+
+    def fit_adapters(
+        self,
+        states_by_agent: Dict[str, Tensor],
+        n_epochs: int = 50,
+        lr: float = 1e-3,
+        batch_size: int = 32,
+        dae_sigma: float = 0.1,
+        mu_cka: float = 1.0,
+        gamma_dae: float = 1.0,
+    ) -> Dict[str, float]:
+        """Train all registered adapter pairs with the Module A+B objective.
+
+        ``L_adapt = L_recon + μ·L_CKA + γ·L_DAE``:
+
+        * **L_recon** — ``Σ_i ‖D_i(E_i(h_i)) − h_i‖²`` preserves each agent's
+          local representation.
+        * **L_DAE** — same reconstruction with ``h_i + ε, ε ~ N(0, σ²I)``
+          corruption before encoding, forcing the hub to keep semantic content
+          robust to surface variation.
+        * **L_CKA** — ``1 − CKA(E_i(h_i), E_j(h_j))`` over row-aligned pairs of
+          agents, computed with the **unbiased HSIC₁ estimator** (see
+          :func:`cka_loss_unbiased`), aligning heterogeneous architectures'
+          hub geometry.
+
+        Args:
+            states_by_agent: agent_id → (N, hidden_dim_i) real hidden states,
+                row-aligned across agents (same prompts, or parallel
+                translations for a cross-lingual variant). Every key must be a
+                registered agent. This method refuses to run on unregistered
+                agents or empty tensors — adapters must never be "trained" on
+                fabricated data.
+            n_epochs, lr, batch_size: optimization hyperparameters
+                (configs/*.yaml ``universal_latent_space.adapter_training``).
+            dae_sigma: Gaussian corruption σ for the DAE term.
+            mu_cka, gamma_dae: loss weights (independently sweepable — the
+                audit flagged a real DAE-vs-CKA conflict risk, so neither is
+                hardcoded relative to the other).
+
+        Returns:
+            Dict of final loss components (``recon``, ``dae``, ``cka``,
+            ``total``).
+        """
+        if not states_by_agent:
+            raise ValueError("fit_adapters requires real hidden states; got none.")
+        agent_ids = sorted(states_by_agent)
+        for aid in agent_ids:
+            self._require_agent(aid)
+            t = states_by_agent[aid]
+            if t is None or t.numel() == 0:
+                raise ValueError(f"Empty hidden-state tensor for agent '{aid}'.")
+            if t.shape[-1] != self._agents[aid].hidden_dim:
+                raise ValueError(
+                    f"Hidden states for '{aid}' have dim {t.shape[-1]}, but the agent "
+                    f"is registered with hidden_dim={self._agents[aid].hidden_dim}."
+                )
+        n_rows = {aid: states_by_agent[aid].shape[0] for aid in agent_ids}
+        if len(set(n_rows.values())) != 1:
+            raise ValueError(f"States must be row-aligned across agents; got {n_rows}.")
+        n = next(iter(n_rows.values()))
+        batch_size = max(4, min(batch_size, n))  # unbiased HSIC needs >= 4
+
+        states = {aid: states_by_agent[aid].to(self.device).float() for aid in agent_ids}
+        params: List[nn.Parameter] = []
+        for aid in agent_ids:
+            params.extend(self._agents[aid].encoder.parameters())
+            params.extend(self._agents[aid].decoder.parameters())
+        optimizer = torch.optim.Adam(params, lr=lr)
+
+        pairs = [
+            (agent_ids[i], agent_ids[j])
+            for i in range(len(agent_ids))
+            for j in range(i + 1, len(agent_ids))
+        ]
+        final: Dict[str, float] = {}
+        for epoch in range(1, n_epochs + 1):
+            perm = torch.randperm(n, device=self.device)
+            epoch_losses = {"recon": 0.0, "dae": 0.0, "cka": 0.0, "total": 0.0}
+            n_batches = 0
+            for start in range(0, n - batch_size + 1, batch_size):
+                idx = perm[start:start + batch_size]
+                optimizer.zero_grad()
+                l_recon = torch.zeros((), device=self.device)
+                l_dae = torch.zeros((), device=self.device)
+                hub_z: Dict[str, Tensor] = {}
+                for aid in agent_ids:
+                    h = states[aid][idx]
+                    entry = self._agents[aid]
+                    z = entry.encoder(h)
+                    hub_z[aid] = z
+                    l_recon = l_recon + F.mse_loss(entry.decoder(z), h)
+                    noisy = h + torch.randn_like(h) * dae_sigma
+                    l_dae = l_dae + F.mse_loss(entry.decoder(entry.encoder(noisy)), h)
+                l_cka = torch.zeros((), device=self.device)
+                for a, b in pairs:
+                    l_cka = l_cka + cka_loss_unbiased(hub_z[a], hub_z[b])
+                if pairs:
+                    l_cka = l_cka / len(pairs)
+                loss = l_recon + gamma_dae * l_dae + mu_cka * l_cka
+                loss.backward()
+                optimizer.step()
+                epoch_losses["recon"] += float(l_recon.item())
+                epoch_losses["dae"] += float(l_dae.item())
+                epoch_losses["cka"] += float(l_cka.item()) if pairs else 0.0
+                epoch_losses["total"] += float(loss.item())
+                n_batches += 1
+            if n_batches:
+                final = {k: v / n_batches for k, v in epoch_losses.items()}
+            if epoch % max(1, n_epochs // 10) == 0:
+                logger.info(
+                    "Adapter training epoch %d/%d | recon=%.4f dae=%.4f cka=%.4f",
+                    epoch, n_epochs,
+                    final.get("recon", float("nan")),
+                    final.get("dae", float("nan")),
+                    final.get("cka", float("nan")),
+                )
+        return final
+
+    # ------------------------------------------------------------------
     # Quality metrics
     # ------------------------------------------------------------------
 
@@ -551,6 +710,6 @@ class UniversalLatentSpace:
     def __repr__(self) -> str:
         agents = list(self._agents.keys())
         return (
-            f"UniversalLatentSpace(universal_dim={self.universal_dim}, "
+            f"UniversalLatentHub(universal_dim={self.universal_dim}, "
             f"n_agents={len(agents)}, agents={agents})"
         )

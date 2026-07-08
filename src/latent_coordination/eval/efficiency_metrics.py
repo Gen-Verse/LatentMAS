@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import asdict, dataclass, field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -16,6 +16,7 @@ __version__ = "0.0.1"
 __maintainer__ = "Himon Thakur"
 __email__ = "hthakur@uccs.edu"
 __status__ = "prototype"
+
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ def bootstrap_ci(
     n_bootstrap: int = 1000,
     ci: float = 0.95,
     seed: int = 42,
-) -> "Tuple[float, float]":
+) -> Tuple[float, float]:
     """Bootstrap confidence interval for a list of scalar values.
 
     Args:
@@ -158,6 +159,7 @@ class EfficiencyAnalyzer:
         system,
         tasks,
         modes: List[str] = ["token", "latent", "hybrid"],
+        universal_space=None,
     ) -> AblationReport:
         """Run MAS ablation comparing text tokens vs text-free latent exchange.
 
@@ -236,9 +238,17 @@ class EfficiencyAnalyzer:
 
         # --- Latent mode ---
         if "latent" in modes:
+            if universal_space is None:
+                # Building a fresh random hub here (the previous behaviour) evaluated
+                # "our" latent mode through UNTRAINED adapters at an arbitrary
+                # universal_dim=128 — not the system under test. The caller must pass
+                # the pipeline's actual (Stage-C-registered/trained) hub.
+                raise ValueError(
+                    "run_ablation() latent mode requires the pipeline's real "
+                    "universal_space (Stage-C adapters). Refusing to fabricate a "
+                    "fresh untrained hub for the comparison."
+                )
             per_sample["latent"] = {"latency_ms": [], "accuracy": [], "cost": []}
-            from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-            universal_space = UniversalLatentSpace(universal_dim=128)
             accuracies_latent = []
             from latent_coordination.eval.scoring import select_answer
             for task in tasks:
@@ -251,10 +261,12 @@ class EfficiencyAnalyzer:
                 accuracies_latent.append(acc)
                 per_sample["latent"]["latency_ms"].append(lat)
                 per_sample["latent"]["accuracy"].append(acc)
-                per_sample["latent"]["cost"].append(256.0)
+                # Real measured latent payload (bytes) for this task, not a constant.
+                per_sample["latent"]["cost"].append(float(orch_result.communication_cost_latent))
             metrics["latent"] = {
                 "avg_latency_ms": float(np.mean(per_sample["latent"]["latency_ms"])) if per_sample["latent"]["latency_ms"] else 0.0,
-                "avg_cost_metric": 256.0,
+                # Mean measured latent bytes/task (was a hardcoded, fabricated 256.0).
+                "avg_cost_metric": float(np.mean(per_sample["latent"]["cost"])) if per_sample["latent"]["cost"] else 0.0,
                 "accuracy": float(np.mean(accuracies_latent)) if accuracies_latent else 0.0,
             }
 

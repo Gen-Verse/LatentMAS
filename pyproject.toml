@@ -18,53 +18,102 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.10"
+# Pinned to match the tested `vllm_env` spec (see environment.yml). transformers
+# was previously pinned to 5.12.1 here, which does not exist in that env (it runs
+# 4.46.3 for vLLM 0.6.4.post1 compatibility) -- a fresh `pip install -e .` with
+# deps would have force-upgraded transformers and broken vLLM.
 dependencies = [
-    "transformers",
+    "transformers==4.46.3",
     "torch",
     "numpy",
     "tqdm",
-    "accelerate",
+    "accelerate==1.1.1",
     "datasets",
     "pandas",
     "matplotlib",
+    "seaborn",
     "scipy",
+    "sacrebleu",
+    "unbabel-comet",
+    "langid",
 ]
 
 # Optional, modular integrations. Install with e.g. `pip install -e .[unsloth]`,
 # `pip install -e .[llamacpp]`, `pip install -e .[vllm]`, or `pip install -e .[all]`.
 [project.optional-dependencies]
 # Fast fine-tuning / training (see training/ and configs/unsloth_train.yaml).
+# NOTE: unsloth_zoo (an unsloth dependency) pulls in an unpinned, latest
+# `torchao`, which requires torch>=2.6 (uses the `torch.int1` dtype). Installed
+# alongside the `vllm` extra (pinned to torch==2.5.1), the unconstrained
+# torchao crashes *any* `from transformers import PreTrainedModel` (and
+# therefore every model-loading path in this repo) with
+# `AttributeError: module 'torch' has no attribute 'int1'`. Pin torchao here
+# to a pre-2.6 build so installing both extras in one env stays functional.
 unsloth = [
-    "unsloth",
+    "unsloth==2026.6.9",
     "trl",
     "peft",
-    "bitsandbytes",
+    "bitsandbytes==0.49.2",
+    "torchao==0.9.0",
     "pyyaml",
 ]
 # Fast GGUF inference backend (see --use_llamacpp).
 llamacpp = [
-    "llama-cpp-python",
+    "llama-cpp-python==0.3.32",
 ]
-# Fast inference backend already supported by the codebase.
+# Fast inference backend already supported by the codebase. Pinned to match
+# the tested `vllm_env` (environment.yml); newer vLLM needs newer torch and
+# is untested against this codebase's HF-backend latent-access paths.
 vllm = [
-    "vllm",
+    "vllm==0.6.4.post1",
 ]
 all = [
-    "unsloth",
+    "unsloth==2026.6.9",
     "trl",
     "peft",
-    "bitsandbytes",
+    "bitsandbytes==0.49.2",
+    "torchao==0.9.0",
     "pyyaml",
-    "llama-cpp-python",
-    "vllm",
+    "llama-cpp-python==0.3.32",
+    "vllm==0.6.4.post1",
 ]
 
 [tool.setuptools]
-# Importable packages. The research code under src/multilingual-latent-reasoning/
-# is run as standalone scripts (it adds the repo root to sys.path itself) and is
-# intentionally not packaged here.
+# Importable packages. Root-level (methods/, training/) plus everything under
+# src/ (latent_coordination, shared, mrre_drift) via package_dir below. These
+# used to be missing entirely, so `pip install -e .` never made
+# `latent_coordination`/`shared`/`mrre_drift` importable -- only manually
+# exporting PYTHONPATH=src did. The research code under
+# src/multilingual-latent-reasoning/ is run as standalone scripts (it adds the
+# repo root to sys.path itself) and is intentionally not packaged here.
 packages = [
     "methods",
     "training",
+    "latent_coordination",
+    "latent_coordination.agents",
+    "latent_coordination.baselines",
+    "latent_coordination.eval",
+    "latent_coordination.latent_space",
+    "latent_coordination.orchestration",
+    "latent_coordination.pipeline",
+    "latent_coordination.topology",
+    "latent_coordination.utils",
+    "latent_coordination.viz",
+    "mechanistic_disentangle",
+    "mechanistic_disentangle.eval",
+    "mechanistic_disentangle.geometry",
+    "mechanistic_disentangle.pipeline",
+    "mechanistic_disentangle.steering",
+    "mechanistic_disentangle.viz",
+    "shared",
+    "shared.data",
+    "mrre_drift",
+    "mrre_drift.eval",
+    "mrre_drift.interpret",
+    "mrre_drift.models",
+    "mrre_drift.mrre",
+    "mrre_drift.pipeline",
+    "mrre_drift.utils",
 ]
+package-dir = { latent_coordination = "src/latent_coordination", mechanistic_disentangle = "src/mechanistic_disentangle", shared = "src/shared", mrre_drift = "src/mrre_drift" }
 py-modules = ["data", "models", "prompts", "run", "train", "utils"]

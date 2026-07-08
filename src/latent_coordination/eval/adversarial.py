@@ -10,8 +10,6 @@ References:
     Vision Wormhole NormMatch (arXiv:2602.15382) for the gate defense design.
 """
 
-__author__ = "Himon Thakur"
-__license__ = "Apache 2.0"
 
 import logging
 from typing import Dict, List, Optional, Tuple
@@ -20,7 +18,16 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
-from latent_coordination.latent_space.universal_space import UniversalLatentSpace
+from latent_coordination.latent_space.universal_space import UniversalLatentHub
+
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +62,9 @@ class BoundedLatentAttacker:
         Returns:
             Perturbed tensor of the same shape, with ‖δ‖₂ ≤ ε per sample.
         """
-        delta = torch.randn_like(hub_vector, generator=self._rng)
+        delta = torch.randn(
+            hub_vector.shape, generator=self._rng, dtype=hub_vector.dtype
+        ).to(hub_vector.device)
         # Normalize to unit ball then scale by epsilon
         delta = delta / (delta.norm(dim=-1, keepdim=True).clamp(min=1e-8))
         delta = delta * self.epsilon
@@ -63,7 +72,7 @@ class BoundedLatentAttacker:
 
     def attack_transfer(
         self,
-        uls: UniversalLatentSpace,
+        uls: UniversalLatentHub,
         sender_id: str,
         receiver_id: str,
         hidden_states: Tensor,
@@ -71,7 +80,7 @@ class BoundedLatentAttacker:
         """Transfer with adversarial perturbation injected in hub space.
 
         Args:
-            uls: Registered UniversalLatentSpace.
+            uls: Registered UniversalLatentHub.
             sender_id: Sender agent ID.
             receiver_id: Receiver agent ID.
             hidden_states: Sender hidden states, shape (B, D_sender).
@@ -143,7 +152,7 @@ class LatentGateDefense:
 # ---------------------------------------------------------------------------
 
 def run_adversarial_eval(
-    uls: UniversalLatentSpace,
+    uls: UniversalLatentHub,
     agent_pairs: List[Tuple[str, str]],
     hidden_states: Tensor,
     epsilons: List[float],
@@ -159,7 +168,7 @@ def run_adversarial_eval(
         3. Measure fidelity degradation (cosine similarity drop).
 
     Args:
-        uls: Configured UniversalLatentSpace with registered agents.
+        uls: Configured UniversalLatentHub with registered agents.
         agent_pairs: List of (sender_id, receiver_id) tuples to evaluate.
         hidden_states: Sample hidden states to transfer, shape (B, D).
         epsilons: List of ε values to sweep.

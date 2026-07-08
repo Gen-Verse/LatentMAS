@@ -8,6 +8,15 @@ import torch
 import torch.nn as nn
 import pytest
 
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
+
 # ---------------------------------------------------------------------------
 # adapter.py tests
 # ---------------------------------------------------------------------------
@@ -86,8 +95,8 @@ def test_compute_reconstruction_error_has_effective_rank():
 # ---------------------------------------------------------------------------
 
 def test_universal_space_transfer_record_has_effective_rank():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("a", hidden_dim=64)
     uls.register_agent("b", hidden_dim=64)
     x = torch.randn(4, 64)
@@ -98,16 +107,16 @@ def test_universal_space_transfer_record_has_effective_rank():
 
 
 def test_align_ridge_shape():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
     src = torch.randn(20, 64)
     tgt = torch.randn(20, 32)
-    aligned = UniversalLatentSpace.align_ridge(src, tgt, alpha=1e-3)
+    aligned = UniversalLatentHub.align_ridge(src, tgt, alpha=1e-3)
     assert aligned.shape == (20, 32)
 
 
 def test_compute_information_metrics_keys():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("x", hidden_dim=64)
     x = torch.randn(8, 64)
     m = uls.compute_information_metrics("x", x)
@@ -116,8 +125,8 @@ def test_compute_information_metrics_keys():
 
 
 def test_transfer_with_norm_match():
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("a", hidden_dim=64)
     uls.register_agent("b", hidden_dim=64)
     x = torch.randn(4, 64)
@@ -246,6 +255,48 @@ def test_attention_router_dispatch_returns_roles():
         assert r in roles
 
 
+def test_attention_router_discriminates_between_intents():
+    """Regression: untrained random keys made the softmax exactly uniform.
+
+    Every routing decision in the 20260705 bench_suite runs logged confidence
+    in [0.333, 0.341] and dispatched all roles — the router was a constant.
+    With prototype-seeded keys, role-relevant queries must route with real
+    confidence, and different intents must produce different weight vectors.
+    """
+    from latent_coordination.orchestration.router import (
+        AttentionRouter, encode_query_bow, QUERY_EMBED_DIM,
+    )
+    roles = ["translation", "reasoning", "safety"]
+    router = AttentionRouter(query_dim=QUERY_EMBED_DIM, roles=roles)
+
+    q_reason = encode_query_bow(
+        "Which of the following is the correct answer to the question about the passage?"
+    )
+    q_translate = encode_query_bow(
+        "Translate this sentence into English and explain the meaning of each word."
+    )
+    w_reason, conf_reason = router(q_reason)
+    w_translate, conf_translate = router(q_translate)
+
+    assert float(conf_reason) > 0.40, "reasoning-intent query should route confidently"
+    assert float(conf_translate) > 0.40, "translation-intent query should route confidently"
+    assert int(w_reason.argmax()) == roles.index("reasoning")
+    assert int(w_translate.argmax()) == roles.index("translation")
+
+
+def test_attention_router_uniform_fallback_without_lexical_overlap():
+    """A query sharing no vocabulary with any role prototype (non-Latin script)
+    must degrade toward uniform weights so the full chain stays dispatched."""
+    from latent_coordination.orchestration.router import (
+        AttentionRouter, encode_query_bow, QUERY_EMBED_DIM,
+    )
+    roles = ["translation", "reasoning", "safety"]
+    router = AttentionRouter(query_dim=QUERY_EMBED_DIM, roles=roles)
+    q = encode_query_bow("ตามข้อความข้างต้น ข้อใดคือคำตอบที่ถูกต้อง")
+    selected, conf = router.dispatch(q, threshold=0.1)
+    assert len(selected) == len(roles), "no-signal query must keep the full chain"
+
+
 def test_adaptive_orchestrator_attention_route():
     from latent_coordination.orchestration.router import AdaptiveOrchestrator
     from latent_coordination.agents.base_agent import AgentConfig, AgentTask
@@ -314,8 +365,8 @@ def test_breakeven_n_positive():
 
 def test_info_theoretic_analyzer_keys():
     from latent_coordination.eval.information_theory import InfoTheoreticAnalyzer
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=32)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=32)
     uls.register_agent("a", hidden_dim=64)
     analyzer = InfoTheoreticAnalyzer(hub_dim=32)
     x = torch.randn(8, 64)
@@ -350,8 +401,8 @@ def test_latent_gate_defense_clamps_outliers():
 
 def test_adversarial_eval_returns_per_epsilon_keys():
     from latent_coordination.eval.adversarial import run_adversarial_eval
-    from latent_coordination.latent_space.universal_space import UniversalLatentSpace
-    uls = UniversalLatentSpace(universal_dim=16)
+    from latent_coordination.latent_space.universal_space import UniversalLatentHub
+    uls = UniversalLatentHub(universal_dim=16)
     uls.register_agent("a", hidden_dim=32)
     uls.register_agent("b", hidden_dim=32)
     x = torch.randn(4, 32)

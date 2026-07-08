@@ -1,0 +1,40 @@
+# Small-scale smoke-test config for the Surgical MRRE pipeline
+# (src/mrre_drift/pipeline/surgical_pipeline.py). Tiny sample counts so all 4 stages
+# (A-D) exercise real code paths in minutes.
+model:
+  model_id: aisingapore/Llama-SEA-LION-v3-8B-IT
+  device: cuda:0
+  dtype: float16
+  load_in_8bit: true
+output_dir: results/smoketest/surgical
+seed: 42
+target_languages:
+- th
+- my
+hidden_state_mapping:
+  n_probe_texts: 4
+  logit_lens:
+    top_k: 10
+    collapse_threshold: 0.40
+  collapse_detector:
+    anchoring_tail_fraction: 0.25
+  use_craf: true
+mrre_drift:
+  enhancement_fractions: [0.40, 0.55, 0.65]
+  anchoring_fractions: [0.75, 0.875]
+  alpha_enhancement: 0.3
+  alpha_anchoring: 0.6
+  eta: 0.05
+  n_prompt_pairs: 4
+  n_forcing_pairs: 4
+ifl_validation:
+  n_samples_per_language: 2
+  max_new_tokens: 32
+  sfr_threshold: 0.5
+  probe_mode: forcing
+  dsl:
+    enabled: true
+    length_bins: [0, 10, 50, 200]
+logging:
+  level: INFO
+  log_dir: logs/smoketest

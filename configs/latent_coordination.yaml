@@ -39,12 +39,50 @@ universal_latent_space:
   adapter_hidden_dim: 1024
   adapter_dropout: 0.1
   adapter_training:
+    # Module A+B interlingua regularization (L_recon + gamma*L_DAE + mu*L_CKA with
+    # the unbiased-HSIC CKA estimator). When enabled=false the hub adapters stay
+    # RANDOM-INIT and latent_based_mas_ours results are not reportable -- Stage C
+    # logs a loud warning. Enabling requires real forward passes through every
+    # agent model on n_samples FLORES+ prompts (budget accordingly on V100).
+    enabled: false
+    n_samples: 64
     n_epochs: 50
     lr: 0.001
     batch_size: 32
+    dae_sigma: 0.1
+    mu_cka: 1.0
+    gamma_dae: 1.0
+# Module C: recursive latent refinement in hub space (strategy.md 4.3).
+# The residual core is zero-initialised (identity until trained), so enabling it
+# measures the closed-loop plumbing without perturbing hub states with random
+# weights. Steps-per-transfer are logged in response metadata.
+latent_reasoning:
+  enabled: false
+  max_steps: 10
+  tau_exit: 0.8
+# Module E: closed-loop drift verification (strategy.md 4.4). Requires
+# universal_latent_space.adapter_training.enabled=true — the probe decoder is
+# fitted on the SAME real hidden-state corpus; enabling it without that raises.
+# On drift: one repair hop (unrefined hub state), then flag-and-continue.
+verification:
+  enabled: false
+  tau_drift: 0.5
+  n_epochs: 100
+  lr: 0.001
+  # linear (default; competitive per precedent) | mlp (shallow 2-layer GELU) --
+  # the strategy.md 4.4 probe-architecture comparison, ablation row 7e.
+  probe_arch: linear
+  mlp_hidden_dim: 256
 cvae:
   query_dim: 64
   graph_dim: 9
+  # Module D geometry conditioning (strategy.md 4.2): condition the topology
+  # prior on x = [q || Geo_L]. Requires a precomputed artifact from
+  # scripts/export_geo_profiles.py (mechanistic side; crosses the firewall as
+  # plain JSON). No zero-vector fallback exists: enabling this without the
+  # artifact raises.
+  condition_on_geometry: false
+  geo_profile_path: results/mechanistic/geo_profiles.json
   latent_dim: 32
   encoder_hidden:
   - 128
@@ -61,9 +99,17 @@ cvae:
   checkpoint_path: .cache/checkpoints/coordination/cvae
 orchestration:
   n_intent_centroids: 8
-  routing_strategy: latent_centroid
-  parallel_agents: true
-  max_parallel_workers: 4
+  # attention (learned attention dispatch, default) | latent_centroid (k-means
+  # over Stage-D intent centroids, kept as ablation) | cvae_topology (the
+  # trained Module D prior samples the collaboration topology per query).
+  # This knob was previously ignored; it now selects the real router.
+  routing_strategy: attention
+  # parallel_agents/max_parallel_workers removed: the latent chain is sequential
+  # by design (each agent consumes the previous agent's transferred hidden state),
+  # so per-task agent parallelism is impossible; parallel_agents=true now fails
+  # loudly instead of being silently ignored. Parallelize across languages/instances.
+  # timeout_per_agent_s: wall-clock cap per agent generate() call (transformers'
+  # max_time stopping criterion); a runaway decode stops at the budget.
   timeout_per_agent_s: 60
 communication:
   modes:
@@ -83,6 +129,22 @@ communication:
   # (cc>=8.0); on V100/sm_70 it transparently falls back to HF.
   backend: auto
 benchmarks:
+  flores_plus:
+    # Real translation-quality scoring against the FLORES+ gold reference, wired via
+    # shared/metrics.py::compute_chrf/compute_xcomet/compute_cometkiwi.
+    # xcomet/cometkiwi DISABLED: unbabel-comet's dependency resolution force-upgrades
+    # transformers/accelerate, breaking this pipeline's pinned versions, and even
+    # after installing it a "tensorflow_text backend" error crashed COMET's tokenizer
+    # init (observed live 2026-07-02, see dev_doc.md's metric-definitions caution).
+    # Re-enable only from an isolated env/subprocess. chrf has no such risk and stays on.
+    translation_metrics:
+      chrf: true
+      xcomet: false
+      cometkiwi: false
+    # 50/language x 6 languages x 3 comm-modes fits a ~4-5h budget on 1x V100 (see
+    # dev_doc.md Section 5's cost model). bleu/sfr_ifl/language_consistency are added
+    # post-hoc via scripts/compute_posthoc_metrics.py after the run completes.
+    n_samples_per_language: 50
   sea_vision:
     enabled: true
     n_samples_per_language: 200
@@ -90,20 +152,16 @@ benchmarks:
   sea_safeguardbench:
     enabled: true
     n_samples: 200
+# Staircase ablation (strategy.md 7.3): the canonical rows 0-6 + 7a live in
+# latent_coordination/eval/ablation_staircase.py::STAIRCASE_ROWS and are run via
+# scripts/run_ablation_staircase.py (ALWAYS --dry-run first; full staircase is
+# multiple GPU-days). The previous block here (communication_modes/n_agents_sweep/
+# topology_types) was aspirational config no code ever read and promised sweeps
+# (2-16 agents, ring topologies) the 3-role pipeline cannot execute -- removed.
+# extra_rows: additions like 7d (Geo_L raw-65 via cvae.geo_profile_path override)
+# or 7e (verification.probe_arch: mlp), each {name, isolates, overrides:{dotted: v}}.
 ablation:
-  communication_modes:
-  - token_based
-  - latent_based
-  - hybrid
-  n_agents_sweep:
-  - 2
-  - 4
-  - 8
-  - 16
-  topology_types:
-  - hub_spoke
-  - fully_connected
-  - ring
+  extra_rows: []
 visualization:
   save_formats:
   - png

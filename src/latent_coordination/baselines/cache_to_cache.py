@@ -9,7 +9,7 @@ dedicated projection.  This baseline demonstrates that O(N²) pairwise latent
 communication exists as an alternative; the paper's O(N) hub-and-spoke design
 should compare against it to show the scaling advantage.
 
-Key differences from UniversalLatentSpace:
+Key differences from UniversalLatentHub:
     • Pairwise projections (O(N²) params and O(N²) transfers per round).
     • Operates on KV-cache pairs (key + value) rather than last-layer hidden.
     • Learnable scalar gate per (sender, receiver) pair.
@@ -19,8 +19,6 @@ Reference:
     Heterogeneous Multi-Agent Systems" arXiv:2510.03215.
 """
 
-__author__ = "Himon Thakur"
-__license__ = "Apache 2.0"
 
 import logging
 from typing import Dict, List, Optional, Tuple
@@ -29,6 +27,15 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+
+__author__ = "Himon Thakur"
+__copyright__ = "Copyright 2026, Himon Thakur"
+__credits__ = ["Himon Thakur"]
+__license__ = "Apache 2.0"
+__version__ = "0.0.1"
+__maintainer__ = "Himon Thakur"
+__email__ = "hthakur@uccs.edu"
+__status__ = "prototype"
 
 logger = logging.getLogger(__name__)
 

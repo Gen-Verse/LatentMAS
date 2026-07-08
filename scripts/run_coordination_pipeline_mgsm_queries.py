@@ -157,8 +157,8 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
     original_token = cls._process_task_token_based
     original_latent = cls._process_task_latent
 
-    def is_mgsm_task(task) -> bool:
-        return ((getattr(task, "metadata", None) or {}).get("benchmark") == "mgsm")
+    def is_math_reasoning_task(task) -> bool:
+        return ((getattr(task, "metadata", None) or {}).get("benchmark") in {"mgsm", "afrimgsm"})
 
     def role_of(router, aid: str) -> str:
         return getattr(router.agents[aid].config, "role", "")
@@ -171,7 +171,7 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
 
     def reasoning_protected_plan(router, task):
         plan = router.route(task)
-        if not is_mgsm_task(task):
+        if not is_math_reasoning_task(task):
             return plan
 
         selected = list(dict.fromkeys(plan.execution_order))
@@ -207,7 +207,7 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
     def select_reasoning_answer(router, task, responses):
         if not responses:
             return None
-        if is_mgsm_task(task):
+        if is_math_reasoning_task(task):
             for resp in reversed(responses):
                 aid = getattr(resp, "agent_id", "")
                 meta = getattr(resp, "metadata", None) or {}
@@ -221,7 +221,7 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
         return responses[-1]
 
     def process_task_token_based_reasoning_protected(self, router, task):
-        if not is_mgsm_task(task):
+        if not is_math_reasoning_task(task):
             return original_token(self, router, task)
 
         plan = reasoning_protected_plan(router, task)
@@ -246,7 +246,7 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
         return answer, safety, token_cost
 
     def process_task_latent_reasoning_protected(self, router, task, universal_space):
-        if not is_mgsm_task(task):
+        if not is_math_reasoning_task(task):
             return original_latent(self, router, task, universal_space)
 
         plan = reasoning_protected_plan(router, task)
@@ -266,57 +266,84 @@ def _patch_mgsm_reasoning_protected_eval() -> None:
 class MGSMQueryCoordinationPipeline(CoordinationPipeline):
     """CoordinationPipeline variant that avoids gated FLORES+ dependencies."""
 
-    def _load_mgsm_query_corpus(
+    def _load_math_query_corpus(
         self, max_per_language: Optional[int] = None
     ) -> Tuple[List[str], List[str]]:
-        """Load MGSM questions and language labels from the enabled config block."""
+        """Load enabled MGSM/AfriMGSM questions and language labels."""
         benchmarks = self._raw_config.get("benchmarks", {}) or {}
         mgsm_cfg = benchmarks.get("mgsm", {}) or {}
-        if not mgsm_cfg.get("enabled"):
+        afrimgsm_cfg = benchmarks.get("afrimgsm", {}) or {}
+        if not mgsm_cfg.get("enabled") and not afrimgsm_cfg.get("enabled"):
             raise RuntimeError(
-                "MGSM-query runner requires benchmarks.mgsm.enabled=true in the config."
+                "MGSM-query runner requires benchmarks.mgsm.enabled=true or "
+                "benchmarks.afrimgsm.enabled=true in the config."
             )
 
         from latent_coordination.eval.correctness import (
+            AFRIMGSM_SUPPORTED_LANGUAGES,
             MGSM_SUPPORTED_LANGUAGES,
+            load_afrimgsm_tasks,
             load_mgsm_tasks,
         )
 
-        langs = list(mgsm_cfg.get("languages") or self.config.target_languages or ["en"])
-        unknown = [lang for lang in langs if lang not in MGSM_SUPPORTED_LANGUAGES]
-        if unknown:
-            raise ValueError(
-                f"MGSM does not cover {unknown}; supported: "
-                f"{sorted(MGSM_SUPPORTED_LANGUAGES)}"
-            )
-
-        configured_n = mgsm_cfg.get("n_samples")
-        if configured_n is not None and max_per_language is not None:
-            n = min(int(configured_n), int(max_per_language))
-        elif configured_n is not None:
-            n = int(configured_n)
-        else:
-            n = max_per_language
-
         queries: List[str] = []
         query_langs: List[str] = []
-        for lang in langs:
-            items = load_mgsm_tasks(language=lang, n=n)
-            queries.extend(item["question"] for item in items)
-            query_langs.extend([lang] * len(items))
-            logger.info("Loaded %d MGSM training queries for '%s'.", len(items), lang)
+
+        def resolve_n(cfg: Dict) -> Optional[int]:
+            configured_n = cfg.get("n_samples")
+            if configured_n is not None and max_per_language is not None:
+                return min(int(configured_n), int(max_per_language))
+            if configured_n is not None:
+                return int(configured_n)
+            return max_per_language
+
+        if mgsm_cfg.get("enabled"):
+            langs = list(mgsm_cfg.get("languages") or self.config.target_languages or ["en"])
+            unknown = [lang for lang in langs if lang not in MGSM_SUPPORTED_LANGUAGES]
+            if unknown:
+                raise ValueError(
+                    f"MGSM does not cover {unknown}; supported: "
+                    f"{sorted(MGSM_SUPPORTED_LANGUAGES)}"
+                )
+            n = resolve_n(mgsm_cfg)
+            for lang in langs:
+                items = load_mgsm_tasks(language=lang, n=n)
+                queries.extend(item["question"] for item in items)
+                query_langs.extend([lang] * len(items))
+                logger.info("Loaded %d MGSM training queries for '%s'.", len(items), lang)
+
+        if afrimgsm_cfg.get("enabled"):
+            langs = list(afrimgsm_cfg.get("languages") or self.config.target_languages or ["sw"])
+            unknown = [lang for lang in langs if lang not in AFRIMGSM_SUPPORTED_LANGUAGES]
+            if unknown:
+                raise ValueError(
+                    f"AfriMGSM does not cover {unknown}; supported: "
+                    f"{sorted(AFRIMGSM_SUPPORTED_LANGUAGES)}"
+                )
+            n = resolve_n(afrimgsm_cfg)
+            for lang in langs:
+                items = load_afrimgsm_tasks(language=lang, n=n)
+                queries.extend(item["question"] for item in items)
+                query_langs.extend([lang] * len(items))
+                logger.info("Loaded %d AfriMGSM training queries for '%s'.", len(items), lang)
 
         if not queries:
-            raise RuntimeError("MGSM query corpus is empty; check benchmarks.mgsm config.")
+            raise RuntimeError("Math query corpus is empty; check benchmarks config.")
         return queries, query_langs
 
+    def _load_mgsm_query_corpus(
+        self, max_per_language: Optional[int] = None
+    ) -> Tuple[List[str], List[str]]:
+        """Backward-compatible alias for older call sites."""
+        return self._load_math_query_corpus(max_per_language=max_per_language)
+
     def _run_stage_b(self) -> CVAETopologyPrior:
-        """Stage B: train CVAE topology prior on MGSM questions."""
+        """Stage B: train CVAE topology prior on enabled math questions."""
         if self.resume and self.checkpoint_manager.exists("stage_b"):
             logger.info("Resuming Stage B from checkpoints.")
             return self.checkpoint_manager.load_latest("stage_b")
 
-        logger.info("Running Stage B: Training CVAE topology prior on MGSM queries.")
+        logger.info("Running Stage B: Training CVAE topology prior on math queries.")
         cvae_cfg = self._raw_config.get("cvae", {}) or {}
         train_cfg = cvae_cfg.get("training", {}) or {}
 
@@ -340,8 +367,8 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
         )
         cvae_prior = CVAETopologyPrior(config=t_config).to(self.config.device)
 
-        real_queries, query_langs = self._load_mgsm_query_corpus()
-        logger.info("Using %d MGSM queries for CVAE training.", len(real_queries))
+        real_queries, query_langs = self._load_math_query_corpus()
+        logger.info("Using %d math queries for CVAE training.", len(real_queries))
 
         self._cvae_query_vocab_size = t_config.query_vocab_size
         query_tensors = torch.stack([self._encode_cvae_query(q) for q in real_queries])
@@ -368,7 +395,7 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
             optimizer.step()
             if epoch % 5 == 0:
                 logger.info(
-                    "CVAE Epoch %d/%d | MGSM ELBO loss=%.4f",
+                    "CVAE Epoch %d/%d | math-query ELBO loss=%.4f",
                     epoch, n_epochs, loss.item(),
                 )
 
@@ -381,12 +408,12 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
     def _train_stage_c_adapters(
         self, universal_space: UniversalLatentHub, router, at_cfg: Dict
     ):
-        """Collect hidden states on MGSM questions and train hub adapters."""
+        """Collect hidden states on math questions and train hub adapters."""
         n_samples = int(at_cfg.get("n_samples", 64))
-        texts, _ = self._load_mgsm_query_corpus(max_per_language=n_samples)
+        texts, _ = self._load_math_query_corpus(max_per_language=n_samples)
         texts = texts[:n_samples]
         if not texts:
-            raise RuntimeError("No MGSM questions available for adapter training.")
+            raise RuntimeError("No math questions available for adapter training.")
 
         states_by_agent: Dict[str, torch.Tensor] = {}
         for aid, agent in router.agents.items():
@@ -399,7 +426,7 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
             states_by_agent[aid] = torch.stack(rows)
 
         logger.info(
-            "Collected row-aligned hidden states for %d agents on %d MGSM prompts; "
+            "Collected row-aligned hidden states for %d agents on %d math prompts; "
             "training adapters (n_epochs=%s, lr=%s, batch_size=%s).",
             len(states_by_agent), len(texts),
             at_cfg.get("n_epochs", 50), at_cfg.get("lr", 1e-3),
@@ -418,7 +445,7 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
         return states_by_agent, texts
 
     def _run_stage_d(self, router) -> Dict:
-        """Stage D: fit intent centroids on MGSM questions."""
+        """Stage D: fit intent centroids on math questions."""
         if self.resume and self.checkpoint_manager.exists("stage_d"):
             logger.info("Resuming Stage D from checkpoints.")
             restored = self.checkpoint_manager.load_latest("stage_d")
@@ -427,13 +454,13 @@ class MGSMQueryCoordinationPipeline(CoordinationPipeline):
                 return restored
             logger.info("Legacy Stage D checkpoint found (no centroid state); recomputing.")
 
-        logger.info("Running Stage D: Intent centroids mapping on MGSM queries.")
+        logger.info("Running Stage D: Intent centroids mapping on math queries.")
         from latent_coordination.orchestration.router import encode_query_bow
 
         if getattr(self, "_real_queries", None):
             real_queries = self._real_queries
         else:
-            real_queries, _ = self._load_mgsm_query_corpus()
+            real_queries, _ = self._load_math_query_corpus()
             self._real_queries = real_queries
 
         historical_embeddings = torch.stack([encode_query_bow(q) for q in real_queries])

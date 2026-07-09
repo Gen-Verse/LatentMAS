@@ -110,7 +110,21 @@ def _patch_cvae_router_inputs_to_prior_device() -> None:
         if self.topology_prior is None or self.topology_query_encoder is None:
             return original(self, task)
 
-        prior_device = next(self.topology_prior.parameters()).device
+        # CheckpointManager restores modules with map_location="cpu", but
+        # CVAETopologyPrior also serializes its internal `_device` field. If the
+        # parameters are CPU while `_device` still says cuda, sample_topology()
+        # creates z on cuda and q_emb on CPU, then torch.cat explodes. Keep both
+        # the module parameters and `_device` synchronized to the router device.
+        target_device = self.device
+        param_device = next(self.topology_prior.parameters()).device
+        internal_device = getattr(self.topology_prior, "_device", param_device)
+        if param_device != target_device or internal_device != target_device:
+            if hasattr(self.topology_prior, "to_device"):
+                self.topology_prior.to_device(str(target_device))
+            else:
+                self.topology_prior.to(target_device)
+                self.topology_prior._device = torch.device(target_device)
+        prior_device = target_device
         Q = self.topology_query_encoder(task.query)
         if Q.dim() == 1:
             Q = Q.unsqueeze(0)

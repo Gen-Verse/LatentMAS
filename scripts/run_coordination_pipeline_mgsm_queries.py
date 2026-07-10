@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 import torch
 
 os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scripts import run_coordination_pipeline as base
 from latent_coordination.latent_space.universal_space import UniversalLatentHub

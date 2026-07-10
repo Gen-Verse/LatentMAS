@@ -1,0 +1,171 @@
+# Small AfriMGSM run for the latent_coordination pipeline using Unsloth's
+# 4-bit Llama-3.1-8B-Instruct checkpoint. The "unsloth/" model id intentionally
+# triggers src/shared/model_loader.py's FastLanguageModel path.
+project:
+  name: bench_hom_afrimgsm_first10_cvae_unsloth_llama31_8b
+  version: 0.2.0
+  description: Unsloth Llama-3.1-8B-Instruct AfriMGSM first-10/language run with CVAE topology routing and latent state transfer
+  output_dir: results/bench_suite/hom_afrimgsm_first10_cvae_unsloth_llama31_8b
+  seed: 42
+
+agents:
+- id: orchestrator
+  model_id: unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+  role: orchestrator
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: false
+  load_in_4bit: true
+  max_new_tokens: 64
+- id: translation_agent
+  model_id: unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+  role: translation
+  device: cuda:0
+  torch_dtype: float16
+  load_in_8bit: false
+  load_in_4bit: true
+  max_new_tokens: 128
+- id: reasoning_agent
+  model_id: unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+  role: reasoning
+  device: cuda:1
+  torch_dtype: float16
+  load_in_8bit: false
+  load_in_4bit: true
+  max_new_tokens: 512
+- id: safety_agent
+  model_id: unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit
+  role: safety
+  device: cuda:1
+  torch_dtype: float16
+  load_in_8bit: false
+  load_in_4bit: true
+  max_new_tokens: 64
+
+universal_latent_space:
+  universal_dim: 2048
+  adapter_hidden_dim: 1024
+  adapter_dropout: 0.1
+  adapter_training:
+    enabled: true
+    n_samples: 64
+    n_epochs: 50
+    lr: 0.001
+    batch_size: 32
+    dae_sigma: 0.1
+    mu_cka: 1.0
+    gamma_dae: 1.0
+
+latent_reasoning:
+  enabled: false
+  max_steps: 10
+  tau_exit: 0.8
+
+verification:
+  enabled: false
+  tau_drift: 0.5
+  n_epochs: 100
+  lr: 0.001
+  probe_arch: linear
+  mlp_hidden_dim: 256
+
+cvae:
+  query_dim: 64
+  graph_dim: 9
+  condition_on_geometry: false
+  geo_profile_path: results/mechanistic/geo_profiles.json
+  latent_dim: 32
+  encoder_hidden:
+  - 128
+  - 64
+  decoder_hidden:
+  - 64
+  - 128
+  training:
+    n_epochs: 100
+    lr: 0.001
+    beta_max: 4.0
+    warmup_epochs: 10
+    batch_size: 64
+  checkpoint_path: .cache/checkpoints/bench_suite/hom_afrimgsm_first10_cvae_unsloth_llama31_8b/cvae
+
+orchestration:
+  n_intent_centroids: 8
+  routing_strategy: cvae_topology
+  timeout_per_agent_s: 180
+
+communication:
+  modes:
+  - token
+  - latent
+  - hybrid
+  track_all: true
+  latent_transfer_layer: -4
+  eval_modes:
+  - single_agent_baseline
+  - latent_based_mas_ours
+  backend: hf
+
+benchmarks:
+  flores_plus:
+    enabled: false
+    translation_metrics:
+      chrf: true
+      xcomet: false
+      cometkiwi: false
+  mgsm:
+    enabled: false
+  afrimgsm:
+    enabled: true
+    n_samples: 10
+    languages: &afrimgsm_langs
+    - am
+    - ee
+    - ha
+    - ig
+    - rw
+    - ln
+    - lg
+    - om
+    - sn
+    - st
+    - sw
+    - tw
+    - wo
+    - xh
+    - yo
+    - zu
+
+ablation:
+  extra_rows: []
+
+visualization:
+  save_formats:
+  - png
+  - pdf
+  dpi: 300
+  style: seaborn-v0_8-whitegrid
+  plots:
+  - agent_topology
+  - cvae_latent_space
+  - token_vs_latent_cost
+  - accuracy_vs_latency
+  - scalability
+  - intent_centroids
+
+checkpointing:
+  enabled: true
+  interval_stages: 1
+  keep_last_n: 5
+  checkpoint_dir: .cache/checkpoints/bench_suite/hom_afrimgsm_first10_cvae_unsloth_llama31_8b
+
+logging:
+  level: INFO
+  log_dir: logs/coordination
+  json_logs: true
+
+parallelism:
+  n_workers: 4
+  use_asyncio: true
+
+target_languages: *afrimgsm_langs

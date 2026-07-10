@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Try importing HuggingFace; gracefully degrade for unit-testing without models
 try:
-    from transformers import AutoModelForCausalLM, AutoTokenizer, PreTrainedModel, PreTrainedTokenizerBase
+    from transformers import AutoModelForCausalLM, AutoTokenizer
     _HF_AVAILABLE = True
 except ImportError:
     _HF_AVAILABLE = False

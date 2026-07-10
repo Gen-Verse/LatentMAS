@@ -12,10 +12,15 @@ SFR = |{characters in target script}| / |{all non-whitespace characters}|
 import logging
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import torch
-from transformers import PreTrainedModel, PreTrainedTokenizerBase
+
+if TYPE_CHECKING:
+    from transformers import PreTrainedModel, PreTrainedTokenizerBase
+else:
+    PreTrainedModel = Any
+    PreTrainedTokenizerBase = Any
 
 __author__ = "Himon Thakur"
 __copyright__ = "Copyright 2026, Himon Thakur"

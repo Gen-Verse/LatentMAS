@@ -1,0 +1,30 @@
+{
+  "pipeline": "latent_coordination",
+  "version": "0.0.1",
+  "timestamp_utc": "2026-07-09T15:53:01.159303",
+  "elapsed_seconds": 34457.7,
+  "stages_requested": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G"
+  ],
+  "config_project": {
+    "name": "bench_hom_afrimgsm_first10_cvae_qwen3_4b",
+    "version": "0.2.0",
+    "description": "Qwen3-4B AfriMGSM first-10/language run with CVAE topology routing and latent state transfer",
+    "output_dir": "results/bench_suite/hom_afrimgsm_first10_cvae_qwen3_4b_math_queries",
+    "seed": 42
+  },
+  "n_agents": 4,
+  "communication_modes": [
+    "token",
+    "latent",
+    "hybrid"
+  ],
+  "success": true,
+  "error": null
+}

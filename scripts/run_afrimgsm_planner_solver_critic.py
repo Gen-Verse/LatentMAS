@@ -34,10 +34,11 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from latent_coordination.agents.base_agent import AgentConfig, AgentTask, BaseAgent
-from latent_coordination.eval.correctness import load_afrimgsm_tasks, score_mgsm
+from latent_coordination.eval.correctness import load_afrimgsm_tasks, load_mgsm_tasks, score_mgsm
 
 
 AFRIMGSM_LANGS = ["am", "ee", "ha", "ig", "rw", "ln", "lg", "om", "sn", "st", "sw", "tw", "wo", "xh", "yo", "zu"]
+MGSM_LANGS = ["bn", "de", "en", "es", "fr", "ja", "ru", "sw", "te", "th", "zh"]
 
 
 def build_prompt(role: str, question: str, context: str = "") -> str:
@@ -112,13 +113,16 @@ class TaskItem:
     answer: float
 
 
-def load_items(languages: Iterable[str], n: int, start_idx: int = 0) -> List[TaskItem]:
+def load_items(benchmark: str, languages: Iterable[str], n: int, start_idx: int = 0) -> List[TaskItem]:
     items: List[TaskItem] = []
+    loader = load_afrimgsm_tasks if benchmark == "afrimgsm" else load_mgsm_tasks
     for lang in languages:
-        tasks = load_afrimgsm_tasks(language=lang, n=start_idx + n)
-        for idx, t in enumerate(tasks[start_idx:start_idx + n], start=start_idx):
+        requested_n = None if n < 0 else start_idx + n
+        tasks = loader(language=lang, n=requested_n)
+        selected = tasks[start_idx:] if n < 0 else tasks[start_idx:start_idx + n]
+        for idx, t in enumerate(selected, start=start_idx):
             items.append(TaskItem(
-                task_id=f"afrimgsm_{lang}_{idx}",
+                task_id=f"{benchmark}_{lang}_{idx}",
                 lang=lang,
                 idx=idx,
                 question=t.get("question") or t.get("query") or "",
@@ -268,7 +272,8 @@ def write_outputs(rows: List[Dict], out_dir: Path) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model_name", default="CohereLabs/aya-expanse-8b")
-    ap.add_argument("--languages", default=",".join(AFRIMGSM_LANGS))
+    ap.add_argument("--benchmark", choices=["afrimgsm", "mgsm"], default="afrimgsm")
+    ap.add_argument("--languages", default=None)
     ap.add_argument("--max_examples", type=int, default=10)
     ap.add_argument("--start_idx", type=int, default=0)
     ap.add_argument("--modes", default="all")
@@ -287,9 +292,10 @@ def main() -> None:
     ap.add_argument("--checkpoint_every", type=int, default=10)
     args = ap.parse_args()
 
-    languages = [x.strip() for x in args.languages.split(",") if x.strip()]
+    default_langs = MGSM_LANGS if args.benchmark == "mgsm" else AFRIMGSM_LANGS
+    languages = [x.strip() for x in (args.languages or ",".join(default_langs)).split(",") if x.strip()]
     modes = normalize_modes(args.modes)
-    items = load_items(languages, args.max_examples, args.start_idx)
+    items = load_items(args.benchmark, languages, args.max_examples, args.start_idx)
     agents = make_agents(args)
 
     out_dir = Path(args.out_dir) / args.run_name

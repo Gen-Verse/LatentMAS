@@ -1,0 +1,21 @@
+[
+  {
+    "log": "latent_mas_Qwen3-4B_gsm8k_sequential_ls10_bs4_think1_55606706.log",
+    "method": "latent_mas",
+    "model": "Qwen/Qwen3-4B",
+    "n": 8,
+    "acc_parsed": 1.0,
+    "acc_reported": 1.0,
+    "latent_steps": 10,
+    "gen_tokens_total": 4223,
+    "gen_tokens_per_problem": 527.875,
+    "per_role": {
+      "planner": 0,
+      "critic": 0,
+      "refiner": 0,
+      "judger": 4223
+    },
+    "wall_sec": 115.1582,
+    "sec_per_problem": 14.3948
+  }
+]

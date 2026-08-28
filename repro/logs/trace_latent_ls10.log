@@ -1,0 +1,44 @@
+loading Qwen/Qwen3-4B ...
+`torch_dtype` is deprecated! Use `dtype` instead!
+Loading checkpoint shards:   0%|          | 0/3 [00:00<?, ?it/s]Loading checkpoint shards:  33%|███▎      | 1/3 [00:02<00:05,  2.69s/it]Loading checkpoint shards:  67%|██████▋   | 2/3 [00:04<00:02,  2.41s/it]Loading checkpoint shards: 100%|██████████| 3/3 [00:05<00:00,  1.37s/it]Loading checkpoint shards: 100%|██████████| 3/3 [00:05<00:00,  1.68s/it]
+==============================================================================
+METHOD=latent_mas  TASK=gsm8k  PROMPT=sequential  latent_steps=10
+==============================================================================
+QUESTION:
+  Janet’s ducks lay 16 eggs per day. She eats three for breakfast every morning and bakes muffins for her friends every day with four. She sells the remainder at the farmers' market daily for $2 per fresh duck egg. How much in dollars does she make every day at the farmers' market?
+
+GOLD: 18
+==============================================================================
+  agent in pipeline: Planner (planner)
+  agent in pipeline: Critic (critic)
+  agent in pipeline: Refiner (refiner)
+  agent in pipeline: Judger (judger)
+------------------------------------------------------------------------------
+  KV cache in            :      0 positions
+  + prompt forward-passed:    156 tokens   (prefill on top of the inherited cache)
+  + latent steps         :     10 positions (embedding-space, NO sampling, NO detokenization)
+  KV cache out           :    166 positions  (delta +166)
+  TEXT TOKENS EMITTED    :      0   <-- this agent produces no text at all
+  KV cache in            :    166 positions
+  + prompt forward-passed:    197 tokens   (prefill on top of the inherited cache)
+  + latent steps         :     10 positions (embedding-space, NO sampling, NO detokenization)
+  KV cache out           :    373 positions  (delta +207)
+  TEXT TOKENS EMITTED    :      0   <-- this agent produces no text at all
+  KV cache in            :    373 positions
+  + prompt forward-passed:    183 tokens   (prefill on top of the inherited cache)
+  + latent steps         :     10 positions (embedding-space, NO sampling, NO detokenization)
+  KV cache out           :    566 positions  (delta +193)
+  TEXT TOKENS EMITTED    :      0   <-- this agent produces no text at all
+  inherited KV cache     :    566 positions <-- the ENTIRE inter-agent channel
+  + own prompt           :    179 tokens
+  => attends over        :    745 positions before decoding starts
+  TEXT TOKENS EMITTED    :    377   <-- the only text the whole system produces
+==============================================================================
+  Planner   (planner ) generated      0 text tokens
+  Critic    (critic  ) generated      0 text tokens
+  Refiner   (refiner ) generated      0 text tokens
+  Judger    (judger  ) generated    377 text tokens
+  TOTAL                 generated    377 text tokens   in 11.3s
+==============================================================================
+PREDICTION: 18   GOLD: 18   CORRECT: True
+==============================================================================

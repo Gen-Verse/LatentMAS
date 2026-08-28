@@ -1,0 +1,12 @@
+method        ls     n     acc   gen tok  prompt tok  gen+prompt  sec/prob
+----------------------------------------------------------------------------------
+muscle         0   378  0.7619    1621.2       785.0      2406.1         ?
+muscle        10   164  0.8476    1512.3      1182.9      2695.2         ?
+
+  muscle       ls=0 per-role generated: critic=0  judger=612799  planner=0  refiner=0
+  muscle       ls=10 per-role generated: critic=0  judger=248022  planner=0  refiner=0
+
+Relative to muscle:
+  muscle       generated +6.7%   generated+prompt -12.0%
+
+wrote repro/results/reference_summary.json

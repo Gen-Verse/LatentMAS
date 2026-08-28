@@ -1,0 +1,46 @@
+[
+  {
+    "log": "qwen3_14b_mbppplus_sequential.txt",
+    "method": "muscle",
+    "model": "Qwen/Qwen3-14B",
+    "n": 378,
+    "acc_parsed": NaN,
+    "acc_reported": 0.7619047619047619,
+    "latent_steps": 0,
+    "gen_tokens_total": 612799,
+    "gen_tokens_per_problem": 1621.1613756613756,
+    "prompt_tokens_total": 296714,
+    "prompt_tokens_per_problem": 784.957671957672,
+    "compute_tokens_per_problem": 2406.1190476190477,
+    "per_role": {
+      "planner": 0,
+      "critic": 0,
+      "refiner": 0,
+      "judger": 612799
+    },
+    "wall_sec": null,
+    "sec_per_problem": null
+  },
+  {
+    "log": "qwen3_14b_humanevalplus_hierarchical.txt",
+    "method": "muscle",
+    "model": "Qwen/Qwen3-14B",
+    "n": 164,
+    "acc_parsed": NaN,
+    "acc_reported": 0.8475609756097561,
+    "latent_steps": 10,
+    "gen_tokens_total": 248022,
+    "gen_tokens_per_problem": 1512.3292682926829,
+    "prompt_tokens_total": 193992,
+    "prompt_tokens_per_problem": 1182.878048780488,
+    "compute_tokens_per_problem": 2695.2073170731705,
+    "per_role": {
+      "planner": 0,
+      "critic": 0,
+      "refiner": 0,
+      "judger": 248022
+    },
+    "wall_sec": null,
+    "sec_per_problem": null
+  }
+]

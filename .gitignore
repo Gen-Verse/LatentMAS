@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# Run artifacts. run.py prints every full prompt, so a single 378-problem stdout
+# log is multi-MB, and the --checkpoint JSONL carries the whole agent trace per
+# problem and grows while a job runs. Track the distilled summaries instead.
+repro/logs/*
+repro/results/*
+!repro/results/summary.json
+!repro/results/reference_summary.json
+!repro/logs/analyze_reference.log
+!repro/logs/trace_latent_ls0.log
+!repro/logs/trace_latent_ls10.log

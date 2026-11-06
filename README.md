@@ -98,6 +98,11 @@ Explore community-driven extensions that expand LatentMAS into new domains, arch
 - **Code:** https://github.com/VectorArc/avp-python
 - **New Features:** Enables agents to share KV-cache and hidden states instead of text, supporting zero-training latent handoff, cross-model transfer, and faster multi-agent collaboration.
 
+### 🐝 7. SwarmEvolve
+**By Qile Jiang & George Em Karniadakis (Brown University)**
+- **Code:** https://github.com/Qile-J/SwarmEvolve
+- **New Features:** Scales LatentMAS to LLM-guided evolutionary program search: each round, hundreds of latent agents in swarms pass their KV caches to summarizer agents that write new programs. On 21 problems in mathematical discovery and scientific computing, it reaches the 60-minute scores of OpenEvolve, ShinkaEvolve, and CodeEvolve in a median of 3–8 minutes.
+
 **If your work extends LatentMAS, feel free to open a PR and we’ll feature it here! 🚀**
 
 

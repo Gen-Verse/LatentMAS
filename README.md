@@ -100,6 +100,7 @@ Explore community-driven extensions that expand LatentMAS into new domains, arch
 
 ### 🐝 7. SwarmEvolve
 **By Qile Jiang & George Em Karniadakis (Brown University)**
+- **Paper:** https://arxiv.org/abs/2611.08483
 - **Code:** https://github.com/Qile-J/SwarmEvolve
 - **New Features:** Scales LatentMAS to LLM-guided evolutionary program search: each round, hundreds of latent agents in swarms pass their KV caches to summarizer agents that write new programs. On 21 problems in mathematical discovery and scientific computing, it reaches the 60-minute scores of OpenEvolve, ShinkaEvolve, and CodeEvolve in a median of 3–8 minutes.
 
